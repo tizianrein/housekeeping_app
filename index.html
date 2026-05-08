@@ -367,7 +367,7 @@ const SEED_WARTUNG = [
 ];
 
 // ============== STATE ==============
-const STORAGE_KEY = 'immo_repair_v4';
+const STORAGE_KEY = 'immo_repair_v5';
 let state;
 try { const s = localStorage.getItem(STORAGE_KEY); state = s ? JSON.parse(s) : { objekte: SEED_OBJEKTE, schaeden: SEED_SCHAEDEN, handwerker: SEED_HANDWERKER, wartung: SEED_WARTUNG }; }
 catch(e) { state = { objekte: SEED_OBJEKTE, schaeden: SEED_SCHAEDEN, handwerker: SEED_HANDWERKER, wartung: SEED_WARTUNG }; }
