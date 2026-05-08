@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f4f3ef">
+<title>Immobilien-Verwaltung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   DESIGN TOKENS
+   ========================================================= */
+:root {
+  --bg:        #f4f3ef;
+  --bg-panel:  #ffffff;
+  --bg-soft:   #ecebe6;
+  --ink:       #1a1a1a;
+  --ink-soft:  #5a5a55;
+  --ink-mute:  #8a8a83;
+  --line:      #1a1a1a;
+  --line-soft: #d6d4cc;
+
+  --accent:        #c1272d;
+  --accent-soft:   #f4d2d4;
+  --accent-deep:   #7a1418;
+
+  --info:          #1f4e79;
+  --info-soft:     #cfe0ee;
+  --warn:          #b87a00;
+  --ok:            #2c7a4b;
+  --ok-soft:       #d7efdf;
+
+  --shadow-1: 0 1px 0 rgba(26,26,26,.06);
+  --shadow-2: 0 12px 28px -16px rgba(26,26,26,.35);
+
+  --radius: 4px;
+  --radius-lg: 8px;
+
+  --mono: "JetBrains Mono", monospace;
+  --sans: "Inter Tight", system-ui, sans-serif;
+  --display: "Fraunces", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--sans); font-size: 14px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased; overflow: hidden;
+}
+
+/* ==============================================================
+   Layout
+   ============================================================== */
+.app {
+  display: grid; grid-template-columns: 260px 1fr 300px;
+  height: 100vh; height: 100dvh;
+}
+@media (max-width: 1100px) { .app { grid-template-columns: 220px 1fr 260px; } }
+
+/* ==============================================================
+   Toolbar (Left) & Sidebar (Right)
+   ============================================================== */
+.toolbar, .sidebar { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { border-right: 1px solid var(--line); }
+.sidebar { border-left: 1px solid var(--line); }
+
+.brand, .sidebar-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 20px; border-bottom: 1px solid var(--line);
+  background: var(--ink); color: var(--bg);
+}
+.brand-mark { font-size: 20px; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--bg); border-radius: 50%; }
+.brand-title, .sidebar-head h2 { font-family: var(--display); font-size: 17px; margin: 0; flex: 1; font-weight: 500; }
+.brand-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); margin-top: 2px; }
+
+.nav-menu, .sidebar-list { flex: 1; overflow-y: auto; padding: 12px 0; }
+.sidebar-list { padding: 12px 14px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 20px; cursor: pointer;
+  font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--ink-soft);
+  border-left: 3px solid transparent; user-select: none;
+}
+.nav-item:hover { background: var(--bg-soft); color: var(--ink); }
+.nav-item.active { background: var(--bg-soft); color: var(--ink); border-left-color: var(--accent); }
+
+.immo-row {
+  padding: 10px 12px; margin-bottom: 8px;
+  border: 1px solid var(--line-soft); border-radius: var(--radius);
+  background: var(--bg-soft); cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  transition: border-color .15s, background .15s;
+}
+.immo-row:hover { border-color: var(--ink); background: var(--bg-panel); }
+.immo-emoji { font-size: 20px; line-height: 1; }
+.immo-name { font-weight: 600; font-size: 13px; flex: 1; }
+.immo-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+
+/* ==============================================================
+   Center Viewer
+   ============================================================== */
+.viewer { background: var(--bg); overflow-y: auto; padding: 24px 32px calc(80px + env(safe-area-inset-bottom)); }
+.section-title { font-family: var(--display); font-size: 22px; font-weight: 500; margin: 0 0 16px; display: flex; justify-content: space-between; align-items: center; }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stat { background: var(--bg-panel); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); padding: 16px; }
+.stat-label { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
+.stat-value { font-family: var(--sans); font-size: 24px; font-weight: 600; margin: 4px 0 0; }
+.stat-value.danger { color: var(--accent); }
+
+/* Cards & Badges */
+.card {
+  background: var(--bg-panel); border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg); padding: 16px; margin-bottom: 12px;
+  position: relative; transition: border-color .12s, box-shadow .12s;
+}
+.card.clickable { cursor: pointer; }
+.card.clickable:hover { border-color: var(--ink); box-shadow: var(--shadow-2); }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+.card-title { font-weight: 600; font-size: 15px; margin: 0; flex: 1; }
+.card-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin: 2px 0 0; }
+
+.badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.badge { font-family: var(--mono); font-size: 10px; font-weight: 500; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.04em; border: 1px solid transparent; }
+.b-offen { background: var(--warn); color: white; }
+.b-progress { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+.b-erledigt { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+.b-dringend { background: #fee2e2; color: #b91c1c; border-color: #f87171; }
+.b-mittel { background: #fef3c7; color: #b45309; border-color: #fbbf24; }
+.b-niedrig { background: #f3f4f6; color: #4b5563; border-color: #d1d5db; }
+
+/* Filter & Search Bar */
+.tool-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; background: var(--bg-panel); padding: 12px; border-radius: var(--radius-lg); border: 1px solid var(--line-soft); }
+.tool-bar input[type="search"] { flex: 1; min-width: 200px; }
+.tool-bar select { width: auto; }
+
+.filters { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+.filters::-webkit-scrollbar { display: none; }
+.pill { padding: 6px 12px; font-family: var(--mono); font-size: 11px; font-weight: 500; border: 1px solid var(--line-soft); background: var(--bg-panel); border-radius: 99px; cursor: pointer; color: var(--ink-soft); white-space: nowrap; }
+.pill:hover { border-color: var(--ink); color: var(--ink); }
+.pill.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* Objekte & Einheiten */
+.obj-card { background: var(--bg-panel); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); margin-bottom: 12px; overflow: hidden; }
+.obj-head { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+.obj-head:hover { background: var(--bg-soft); }
+.obj-name { font-weight: 600; font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px; }
+.obj-stats { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin: 4px 0 0; }
+.obj-chev { font-size: 16px; color: var(--ink-mute); transition: transform 0.2s; }
+.obj-card.expanded .obj-chev { transform: rotate(90deg); }
+.obj-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--line-soft); }
+.obj-card.expanded .obj-body { display: block; }
+.obj-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); margin-bottom: 8px; }
+.obj-summary-label { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); margin: 0; text-transform: uppercase; }
+.obj-summary-value { font-family: var(--mono); font-size: 13px; font-weight: 600; margin: 2px 0 0; }
+
+.einheit { padding: 12px 0; border-top: 1px solid var(--line-soft); cursor: pointer; }
+.einheit:first-of-type { border-top: none; }
+.einheit-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.einheit-name { font-weight: 600; font-size: 13px; }
+.einheit-mieter { color: var(--ink-soft); font-size: 13px; margin: 2px 0 0; }
+.einheit-stats { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin: 4px 0 0; }
+
+.einheit-detail { display: none; padding: 14px; background: var(--bg-soft); border-radius: var(--radius); margin: 10px 0 0; border: 1px solid var(--line-soft); }
+.einheit.expanded .einheit-detail { display: block; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-bottom: 12px; }
+.detail-grid-item .lbl { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); margin: 0; text-transform: uppercase; }
+.detail-grid-item .val { font-family: var(--mono); font-size: 12px; font-weight: 600; margin: 2px 0 0; }
+
+.empty { color: var(--ink-mute); font-family: var(--mono); font-size: 12px; text-align: center; padding: 40px 16px; border: 1px dashed var(--line-soft); border-radius: var(--radius-lg); }
+
+/* Buttons & Inputs */
+.btn {
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  padding: 8px 14px; border: 1px solid var(--line); background: var(--bg-panel);
+  color: var(--ink); cursor: pointer; border-radius: var(--radius);
+  transition: background .12s, transform .08s; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn:hover { background: var(--bg-soft); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+.btn.primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.btn.danger { color: var(--accent); border-color: var(--line-soft); }
+.btn.danger:hover { border-color: var(--accent); background: var(--accent-soft); }
+.btn.small { padding: 6px 10px; font-size: 12px; }
+.btn.success { background: var(--ok); border-color: var(--ok); color: white; }
+.btn.success:hover { background: #23633c; border-color: #23633c; }
+.btn.info { background: var(--info); border-color: var(--info); color: white; }
+.btn.info:hover { background: #163b5c; border-color: #163b5c; }
+
+/* EXTRA GROSSER ADD-BUTTON */
+.btn-add { font-size: 15px; padding: 10px 18px; font-weight: 600; box-shadow: 0 4px 12px rgba(193,39,45,.3); border-radius: var(--radius-lg); }
+.btn-add .ti { font-size: 18px; }
+
+input, select, textarea {
+  width: 100%; font-family: var(--sans); font-size: 14px; padding: 10px 12px;
+  border: 1px solid var(--line-soft); border-radius: var(--radius);
+  background: var(--bg-panel); color: var(--ink); outline: none; transition: border-color .15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--ink); }
+textarea { resize: vertical; min-height: 80px; }
+
+.icon-btn { border: 1px solid transparent; background: transparent; width: 32px; height: 32px; border-radius: var(--radius); cursor: pointer; font-size: 16px; color: var(--ink-soft); display: grid; place-items: center; }
+.icon-btn:hover { background: var(--bg-soft); color: var(--ink); border-color: var(--line-soft); }
+
+/* Modals */
+.modal-bg { position: fixed; inset: 0; background: rgba(26,26,26,.6); z-index: 100; display: grid; place-items: center; padding: 24px; backdrop-filter: blur(3px); animation: fadeIn .15s ease-out; }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+.modal { background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--radius-lg); width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-2); overflow: hidden; }
+.modal-head { padding: 18px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; background: var(--ink); color: var(--bg); }
+.modal-title { font-family: var(--display); font-size: 20px; font-weight: 500; margin: 0; }
+.modal-head .icon-btn { color: var(--bg); border-color: transparent; }
+.modal-head .icon-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+.modal-body { padding: 18px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.modal-foot { padding: 14px 20px; border-top: 1px solid var(--line-soft); display: flex; gap: 10px; justify-content: flex-end; background: var(--bg-panel); }
+
+.field label { display: block; font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-mute); margin-bottom: 4px; }
+.modal-section-label { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); margin: 16px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; border-top: 1px solid var(--line-soft); padding-top: 16px; display: flex; justify-content: space-between; align-items: center; }
+.modal-section-label:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.modal-section-value { margin: 0; font-size: 14px; }
+
+.timeline { background: var(--bg-soft); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 4px 12px; margin-top: 6px; }
+.timeline-entry { padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.timeline-entry:last-child { border-bottom: none; }
+.timeline-date { font-family: var(--mono); font-size: 10px; color: var(--ink-soft); margin: 0 0 2px; }
+
+/* Mobile Drawers */
+.drawer-close { display: none; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .viewer { grid-column: 1; grid-row: 1; padding: 16px 16px calc(90px + env(safe-area-inset-bottom)); }
+  .toolbar, .sidebar { position: fixed; top: 0; bottom: 0; width: min(86vw, 320px); z-index: 50; transition: transform .28s cubic-bezier(.2,.7,.2,1); box-shadow: 0 0 40px rgba(0,0,0,.25); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: env(safe-area-inset-bottom); }
+  .toolbar { left: 0; transform: translateX(-105%); border-right: 1px solid var(--line); }
+  .sidebar { right: 0; transform: translateX(105%); border-left: 1px solid var(--line); }
+  body.drawer-toolbar-open .toolbar { transform: translateX(0); }
+  body.drawer-sidebar-open .sidebar { transform: translateX(0); }
+
+  .drawer-backdrop { position: fixed; inset: 0; background: rgba(26,26,26,.45); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  body.drawer-toolbar-open .drawer-backdrop, body.drawer-sidebar-open .drawer-backdrop { opacity: 1; pointer-events: auto; }
+
+  .fab { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 30; width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); background: var(--ink); color: var(--bg); font-size: 24px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .fab.fab-nav { left: calc(20px + env(safe-area-inset-left)); }
+  .fab.fab-immo { right: calc(20px + env(safe-area-inset-right)); background: var(--bg-panel); color: var(--ink); }
+
+  .drawer-close { display: inline-grid; place-items: center; width: 32px; height: 32px; background: transparent; border: 1px solid var(--bg); border-radius: var(--radius); color: inherit; cursor: pointer; font-size: 16px; margin-left: auto; }
+  
+  .modal-bg { padding: 0; align-items: stretch; }
+  .modal { max-width: 100%; max-height: 100dvh; height: 100dvh; border-radius: 0; border: none; }
+  .modal-head, .modal-body { padding: 14px 16px; }
+  .modal-foot { padding: 12px 16px; }
+}
+@media (min-width: 901px) { .fab, .drawer-backdrop { display: none !important; } }
+
+.ti { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+  <symbol id="i-dash" viewBox="0 0 24 24"><path d="M5 4h4v6H5zM15 4h4v4h-4zM15 12h4v8h-4zM5 14h4v6H5z"/></symbol>
+  <symbol id="i-tools" viewBox="0 0 24 24"><path d="M3 21l4-1 12-12-3-3L4 17l-1 4z M14 7l3 3"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14M9 21V11h6v10M9 7h6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M5 7h3l2-2h4l2 2h3a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.8 9a3 3 0 00-2.8-2c-1.7 0-3 1-3 2.5s1.3 2.5 3 2.5 3 1 3 2.5S13.7 17 12 17a3 3 0 01-2.8-2"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 3h11l4 4v14H5zM16 3v4h4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13a2 2 0 002 2h8a2 2 0 002-2l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="toolbar" id="toolbar">
+    <div class="brand">
+      <div class="brand-mark">⌂</div>
+      <div class="brand-text">
+        <div class="brand-title">Immobilien</div>
+        <div class="brand-sub">Familie Rein GbR</div>
+      </div>
+      <button class="drawer-close" data-drawer="toolbar">✕</button>
+    </div>
+    <nav class="nav-menu">
+      <div class="nav-item active" data-view="dashboard"><svg class="ti icon"><use href="#i-dash"/></svg> Übersicht</div>
+      <div class="nav-item" data-view="schaeden"><svg class="ti icon"><use href="#i-tools"/></svg> Schäden</div>
+      <div class="nav-item" data-view="objekte"><svg class="ti icon"><use href="#i-building"/></svg> Objekte</div>
+      <div class="nav-item" data-view="handwerker"><svg class="ti icon"><use href="#i-user"/></svg> Handwerker</div>
+      <div class="nav-item" data-view="wartung"><svg class="ti icon"><use href="#i-cal"/></svg> Wartung</div>
+    </nav>
+  </aside>
+
+  <main class="viewer" id="view-container"></main>
+
+  <aside class="sidebar" id="sidebar">
+    <header class="sidebar-head"><h2>Immobilien</h2><button class="drawer-close" data-drawer="sidebar">✕</button></header>
+    <div class="sidebar-list" id="quick-immo-list"></div>
+  </aside>
+</div>
+
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<button class="fab fab-nav" id="fabNav" title="Menü">☰</button>
+<button class="fab fab-immo" id="fabImmo" title="Immobilien"><svg class="ti"><use href="#i-building"/></svg></button>
+
+<script>
+// ============== SEED DATA (v4) ==============
+const SEED_OBJEKTE = [
+  { id: 'frankenweg', emoji: '🏢', name: 'Frankenweg', adresse: 'Frankenweg', einheiten: [
+      {id:'F-1', typ:'Wohnung', bez:'WE 1, EG L', mieter:'Vanessa Graner', m2:58.4},
+      {id:'F-2', typ:'Wohnung', bez:'WE 2, EG M', mieter:'Lidia Bretz', m2:46.71},
+      {id:'F-3', typ:'Wohnung', bez:'WE 3, EG R', mieter:'Verena Bruckner', m2:57.9},
+      {id:'F-4', typ:'Wohnung', bez:'WE 4, 1. OG L', mieter:'Patricia Gormann', m2:58.6},
+      {id:'F-5', typ:'Wohnung', bez:'WE 5, 1. OG M', mieter:'Bernd Uffner', m2:47.4},
+      {id:'F-6', typ:'Wohnung', bez:'WE 6, 1. OG R', mieter:'Kathrin Schröder', m2:58.1},
+      {id:'F-7', typ:'Wohnung', bez:'WE 7, 2. OG L', mieter:'Herbert Müller', m2:58.6},
+      {id:'F-8', typ:'Wohnung', bez:'WE 8, 2. OG M', mieter:'Vanessa Graner', m2:47.4},
+      {id:'F-9', typ:'Wohnung', bez:'WE 9, 2. OG R', mieter:'Maike Topfner', m2:58.1},
+      {id:'F-10', typ:'Wohnung', bez:'WE 10, DG R', mieter:'Jasper Wald', m2:55},
+      {id:'F-11', typ:'Büro', bez:'UG, R', mieter:'Vanessa Graner', m2:60}
+  ]},
+  { id: 'kbs13a', emoji: '🍇', name: 'Karl-Broel-Straße 13A', adresse: 'Karl-Broel-Straße 13A', einheiten: [
+      {id:'T-1', typ:'Wohnung', bez:'WE 1, EG L', mieter:'Patricia Gorman', m2:111},
+      {id:'T-2', typ:'Wohnung', bez:'WE 2, EG R', mieter:'Kathrin Schröder', m2:80},
+      {id:'T-3', typ:'Wohnung', bez:'WE 3, 1. OG L', mieter:'Waltraud Nagel', m2:105},
+      {id:'T-4', typ:'Wohnung', bez:'WE 4, 2. OG R', mieter:'Max Kruschner', m2:46},
+      {id:'T-5', typ:'Wohnung', bez:'WE 5, 2. OG L', mieter:'Jasper Wald', m2:105},
+      {id:'T-6', typ:'Wohnung', bez:'WE 6, 2. OG R', mieter:'Vanessa Graner', m2:46}
+  ]},
+  { id: 'kbs13', emoji: '🌻', name: 'Karl-Broel-Straße 13', adresse: 'Karl-Broel-Straße 13', einheiten: [
+      {id:'G-1', typ:'Wohnung', bez:'WE 1, EG', mieter:'Bernd Uffner', m2:118},
+      {id:'G-2', typ:'Wohnung', bez:'WE 2, OG', mieter:'Andreas Topfner', m2:100},
+      {id:'G-3', typ:'Büro', bez:'WE 3, Kegelbahn', mieter:'Leerstand', m2:70}
+  ]},
+  { id: 'bergstr', emoji: '🪲', name: 'Bergstraße', adresse: 'Bergstraße', einheiten: [
+      {id:'B-1', typ:'Ladenlokal', bez:'GE 1, EG', mieter:'Maike Bretz', m2:47},
+      {id:'B-2', typ:'Wohnung', bez:'WE 2, EG', mieter:'Verena Bruckner', m2:123},
+      {id:'B-3', typ:'Wohnung', bez:'WE 3, EG', mieter:'Jasper Wald', m2:33},
+      {id:'B-4', typ:'Wohnung', bez:'WE 4, 1. OG', mieter:'Kathrin Schröder', m2:45},
+      {id:'B-5', typ:'Wohnung', bez:'WE 5, 1. OG', mieter:'Patricia Gorman', m2:124}
+  ]},
+  { id: 'jena', emoji: '🏡', name: 'Jena', adresse: 'Jena', einheiten: [
+      {id:'J-1', typ:'Wohnung', bez:'WE 1, EG', mieter:'Waltraud Kruschner', m2:110},
+      {id:'J-2', typ:'Wohnung', bez:'WE 2, EG', mieter:'Andreas Topfner', m2:150}
+  ]}
+];
+
+const SEED_HANDWERKER = [
+  {id:'h1', name:'Sanitär Müller GmbH', gewerk:'Sanitär', tel:'0228-123456', notiz:'Schnell'},
+  {id:'h2', name:'Elektro Schmidt', gewerk:'Elektrik', tel:'0228-234567', notiz:''},
+  {id:'h3', name:'Heizung Weber', gewerk:'Heizung', tel:'0228-345678', notiz:'Wartet Brennwerttherme'}
+];
+
+const SEED_SCHAEDEN = [
+  {id:'s1', titel:'Wasserschaden Bad', beschreibung:'Feuchter Fleck an Decke.', objektId:'frankenweg', einheitId:'F-3', kategorie:'Sanitär', prioritaet:'dringend', status:'in_bearbeitung', bearbeiterTyp:'extern', handwerkerId:'h1', kosten:0, erstellt:'2025-04-28', fotos:[], historie:[{datum:'2025-04-28', text:'Gemeldet'}, {datum:'2025-04-29', text:'Müller beauftragt'}]},
+  {id:'s2', titel:'Heizung tropft', beschreibung:'Ventil Wohnzimmer.', objektId:'kbs13a', einheitId:'T-2', kategorie:'Heizung', prioritaet:'mittel', status:'offen', bearbeiterTyp:'intern', handwerkerId:null, kosten:0, erstellt:'2025-05-03', fotos:[], historie:[{datum:'2025-05-03', text:'Angelegt'}]},
+  {id:'s5', titel:'Briefkasten erneuert', beschreibung:'Neuer Kasten montiert.', objektId:'frankenweg', einheitId:'F-1', kategorie:'Sonstiges', prioritaet:'niedrig', status:'erledigt', bearbeiterTyp:'intern', handwerkerId:null, kosten:85, erstellt:'2025-03-10', fotos:[], historie:[{datum:'2025-03-15', text:'Erledigt, 85€'}]}
+];
+
+const SEED_WARTUNG = [
+  {id:'w1', titel:'Heizungswartung', objektId:'frankenweg', intervall:'Jährlich', naechster:'2025-09-01', notiz:''},
+  {id:'w2', titel:'Rauchmelder-Check', objektId:null, intervall:'Jährlich', naechster:'2025-10-01', notiz:''}
+];
+
+// ============== STATE ==============
+const STORAGE_KEY = 'immo_repair_v4';
+let state;
+try { const s = localStorage.getItem(STORAGE_KEY); state = s ? JSON.parse(s) : { objekte: SEED_OBJEKTE, schaeden: SEED_SCHAEDEN, handwerker: SEED_HANDWERKER, wartung: SEED_WARTUNG }; }
+catch(e) { state = { objekte: SEED_OBJEKTE, schaeden: SEED_SCHAEDEN, handwerker: SEED_HANDWERKER, wartung: SEED_WARTUNG }; }
+
+let currentView = 'dashboard';
+let modalOpen = null;
+let expandedObjekt = null; let expandedEinheit = null;
+
+// Filter/Search State for Damages
+let schadenSearch = '';
+let schadenSort = 'neu';
+let schadenFilterKat = 'alle';
+let listFilter = 'alle';
+
+function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){} }
+function uid() { return 'id' + Date.now() + Math.floor(Math.random()*1000); }
+function heute() { return new Date().toISOString().slice(0,10); }
+function findObjekt(id) { return state.objekte.find(o=>o.id===id); }
+function findEinheit(objId, einId) { const o = findObjekt(objId); return o ? o.einheiten.find(e=>e.id===einId) : null; }
+function findHandwerker(id) { return state.handwerker.find(h=>h.id===id); }
+function escapeHtml(s) { return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function fmtEuroInt(n) { return (n||0).toLocaleString('de-DE') + ' €'; }
+
+// ============== RENDER ==============
+function render() {
+  document.querySelectorAll('.nav-item').forEach(b=> b.classList.toggle('active', b.dataset.view===currentView));
+  const c = document.getElementById('view-container');
+  if (currentView==='dashboard') c.innerHTML = renderDashboard();
+  else if (currentView==='schaeden') c.innerHTML = renderSchaeden();
+  else if (currentView==='objekte') c.innerHTML = renderObjekte();
+  else if (currentView==='handwerker') c.innerHTML = renderHandwerker();
+  else if (currentView==='wartung') c.innerHTML = renderWartung();
+  renderQuickImmoList(); bindHandlers(); renderModal();
+}
+
+function renderQuickImmoList() {
+  document.getElementById('quick-immo-list').innerHTML = state.objekte.map(o => `
+    <div class="immo-row" data-action="goto-objekt" data-id="${o.id}">
+      <div class="immo-emoji">${o.emoji}</div>
+      <div class="immo-name">${escapeHtml(o.name)}</div>
+      <div class="immo-meta">${o.einheiten.length} EH</div>
+    </div>`).join('');
+}
+
+function renderDashboard() {
+  const offen = state.schaeden.filter(s=>s.status==='offen').length;
+  const inProgress = state.schaeden.filter(s=>s.status==='in_bearbeitung').length;
+  const dringend = state.schaeden.filter(s=>s.prioritaet==='dringend' && s.status!=='erledigt').length;
+  const offeneSchaeden = state.schaeden.filter(s=>s.status!=='erledigt').sort((a,b)=>{ const p={dringend:0,mittel:1,niedrig:2}; return p[a.prioritaet]-p[b.prioritaet]; }).slice(0,5);
+
+  return `
+    <div class="section-title">Übersicht</div>
+    <div class="stats">
+      <div class="stat"><p class="stat-label">Offen</p><p class="stat-value">${offen}</p></div>
+      <div class="stat"><p class="stat-label">In Bearbeitung</p><p class="stat-value">${inProgress}</p></div>
+      <div class="stat"><p class="stat-label">Dringend</p><p class="stat-value ${dringend>0?'danger':''}">${dringend}</p></div>
+    </div>
+    <div class="section-title">Aktuelle Schäden <button class="btn primary btn-add" data-action="new-schaden"><svg class="ti"><use href="#i-plus"/></svg> Neu</button></div>
+    ${offeneSchaeden.length===0 ? '<p class="empty">Keine offenen Schäden 🎉</p>' : offeneSchaeden.map(renderSchadenCard).join('')}
+  `;
+}
+
+function renderSchadenCard(s) {
+  const obj = findObjekt(s.objektId); const ein = findEinheit(s.objektId, s.einheitId);
+  const statusBadge = s.status==='offen'?'<span class="badge b-offen">Offen</span>':s.status==='in_bearbeitung'?'<span class="badge b-progress">In Bearb.</span>':'<span class="badge b-erledigt">Erledigt</span>';
+  const prioBadge = `<span class="badge b-${s.prioritaet}">${s.prioritaet}</span>`;
+  const bearbeiterInfo = s.bearbeiterTyp === 'extern' ? '🔧 Extern' : '👤 Intern';
+  
+  // Prüfen, ob Fotos existieren, um das erste als Vorschau zu zeigen
+  let fotoHtml = '';
+  if (s.fotos && s.fotos.length > 0) {
+    fotoHtml = `<img src="${s.fotos[0]}" style="width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); flex-shrink: 0; margin-left: 12px;" alt="Foto">`;
+  }
+
+  return `<div class="card clickable" data-action="open-schaden" data-id="${s.id}">
+    <div class="card-head"><p class="card-title">${escapeHtml(s.titel)}</p><div class="badges">${prioBadge}${statusBadge}</div></div>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 4px;">
+      <div style="flex: 1; min-width: 0;">
+        <p class="card-meta">${obj?obj.emoji+' '+escapeHtml(obj.name):'?'} · ${escapeHtml(ein?ein.bez:'?')} · ${escapeHtml(ein?ein.mieter:'')}</p>
+        <p class="card-meta" style="margin-top:4px;">${escapeHtml(s.kategorie)} · ${bearbeiterInfo} · seit ${s.erstellt}</p>
+      </div>
+      ${fotoHtml}
+    </div>
+  </div>`;
+}
+
+function renderSchaeden() {
+  let liste = state.schaeden.slice();
+  
+  // Search
+    if (schadenSearch) {
+      const q = schadenSearch.toLowerCase();
+      liste = liste.filter(s => {
+        const obj = findObjekt(s.objektId);
+        const ein = findEinheit(s.objektId, s.einheitId);
+        const objName = obj ? (obj.name || '').toLowerCase() : '';
+        const mieter = ein ? (ein.mieter || '').toLowerCase() : '';
+        return s.titel.toLowerCase().includes(q) || 
+              (s.beschreibung||'').toLowerCase().includes(q) || 
+              s.kategorie.toLowerCase().includes(q) || 
+              objName.includes(q) ||
+              mieter.includes(q);
+      });
+    }
+  // Status Filter
+  if (listFilter !== 'alle') liste = liste.filter(s => s.status === listFilter);
+  // Category Filter
+  if (schadenFilterKat !== 'alle') liste = liste.filter(s => s.kategorie === schadenFilterKat);
+  
+  // Sorting
+  liste.sort((a,b) => {
+    if(schadenSort==='neu') return b.erstellt.localeCompare(a.erstellt);
+    if(schadenSort==='alt') return a.erstellt.localeCompare(b.erstellt);
+    if(schadenSort==='prio') { const p={dringend:0, mittel:1, niedrig:2}; return p[a.prioritaet]-p[b.prioritaet]; }
+    return 0;
+  });
+
+  return `
+    <div class="section-title">Alle Schäden <button class="btn primary btn-add" data-action="new-schaden"><svg class="ti"><use href="#i-plus"/></svg> Neu</button></div>
+    
+    <div class="tool-bar">
+      <input type="search" id="input-search" placeholder="Suchen..." value="${escapeHtml(schadenSearch)}">
+      <select id="sel-sort">
+        <option value="neu" ${schadenSort==='neu'?'selected':''}>Neueste zuerst</option>
+        <option value="alt" ${schadenSort==='alt'?'selected':''}>Älteste zuerst</option>
+        <option value="prio" ${schadenSort==='prio'?'selected':''}>Nach Dringlichkeit</option>
+      </select>
+      <select id="sel-kat">
+        <option value="alle">Alle Kategorien</option>
+        <option value="Sanitär" ${schadenFilterKat==='Sanitär'?'selected':''}>Sanitär</option>
+        <option value="Elektrik" ${schadenFilterKat==='Elektrik'?'selected':''}>Elektrik</option>
+        <option value="Heizung" ${schadenFilterKat==='Heizung'?'selected':''}>Heizung</option>
+        <option value="Fenster/Türen" ${schadenFilterKat==='Fenster/Türen'?'selected':''}>Fenster/Türen</option>
+        <option value="Boden/Wand" ${schadenFilterKat==='Boden/Wand'?'selected':''}>Boden/Wand</option>
+        <option value="Außenbereich" ${schadenFilterKat==='Außenbereich'?'selected':''}>Außenbereich</option>
+        <option value="Sonstiges" ${schadenFilterKat==='Sonstiges'?'selected':''}>Sonstiges</option>
+      </select>
+    </div>
+
+    <div class="filters">
+      <button class="pill ${listFilter==='alle'?'active':''}" data-filter="alle">Alle</button>
+      <button class="pill ${listFilter==='offen'?'active':''}" data-filter="offen">Offen</button>
+      <button class="pill ${listFilter==='progress'?'active':''}" data-filter="progress">In Bearbeitung</button>
+      <button class="pill ${listFilter==='erledigt'?'active':''}" data-filter="erledigt">Erledigt</button>
+    </div>
+    ${liste.length===0?'<p class="empty">Keine Einträge gefunden</p>':liste.map(renderSchadenCard).join('')}
+  `;
+}
+
+function renderObjekte() { return `<div class="section-title">Objekte & Einheiten</div>${state.objekte.map(renderObjektCard).join('')}`; }
+
+function renderObjektCard(o) {
+  const offen = state.schaeden.filter(s=>s.objektId===o.id && s.status!=='erledigt').length;
+  const totalM2 = o.einheiten.reduce((a,e)=>a+(parseFloat(e.m2)||0), 0);
+  const expanded = expandedObjekt===o.id;
+  return `<div class="obj-card ${expanded?'expanded':''}" data-obj-id="${o.id}">
+    <div class="obj-head" data-action="toggle-objekt" data-id="${o.id}">
+      <div>
+        <p class="obj-name"><span style="font-size: 20px;">${o.emoji}</span> ${escapeHtml(o.name)}</p>
+        <p class="obj-stats">${o.einheiten.length} Einheiten · ${totalM2.toFixed(0)} m² · ${offen} offene Schäden</p>
+      </div>
+      <svg class="ti obj-chev"><use href="#i-chev"/></svg>
+    </div>
+    <div class="obj-body">
+      ${o.einheiten.map(e=>renderEinheitRow(o, e)).join('')}
+    </div>
+  </div>`;
+}
+
+function renderEinheitRow(o, e) {
+  const eOffen = state.schaeden.filter(s=>s.einheitId===e.id && s.status!=='erledigt').length;
+  const expanded = expandedEinheit===e.id;
+  return `<div class="einheit ${expanded?'expanded':''}" data-action="toggle-einheit" data-id="${e.id}">
+    <div class="einheit-row">
+      <div style="flex:1; min-width:0;">
+        <div class="einheit-name">${escapeHtml(e.id)} · ${escapeHtml(e.bez)}</div>
+        <div class="einheit-mieter">${escapeHtml(e.mieter)}</div>
+        <div class="einheit-stats">${e.m2} m²${eOffen>0?' · <span style="color:var(--accent);">'+eOffen+' offen</span>':''}</div>
+      </div>
+    </div>
+    <div class="einheit-detail">
+      <div class="detail-grid">
+        <div class="detail-grid-item"><p class="lbl">Fläche</p><p class="val">${e.m2} m²</p></div>
+        <div class="detail-grid-item"><p class="lbl">Typ</p><p class="val">${escapeHtml(e.typ)}</p></div>
+        <div class="detail-grid-item"><p class="lbl">Bezeichnung</p><p class="val">${escapeHtml(e.bez)}</p></div>
+        <div class="detail-grid-item"><p class="lbl">Mieter</p><p class="val">${escapeHtml(e.mieter)}</p></div>
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 8px;">
+        <button class="btn small" data-action="edit-einheit" data-obj="${o.id}" data-ein="${e.id}"><svg class="ti"><use href="#i-edit"/></svg> Bearbeiten</button>
+        <button class="btn small primary" data-action="schaden-fuer" data-obj="${o.id}" data-ein="${e.id}"><svg class="ti"><use href="#i-plus"/></svg> Schaden erfassen</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderHandwerker() {
+  return `<div class="section-title">Handwerker <button class="btn primary btn-add" data-action="new-handwerker"><svg class="ti"><use href="#i-plus"/></svg> Neu</button></div>
+    ${state.handwerker.length===0?'<p class="empty">Noch keine Handwerker eingetragen</p>':state.handwerker.map(h=>{
+      const auftraege = state.schaeden.filter(s=>s.handwerkerId===h.id).length;
+      return `<div class="card">
+        <div class="card-head"><p class="card-title">${escapeHtml(h.name)}</p><span class="badge b-niedrig">${auftraege} Aufträge</span></div>
+        <p class="card-meta">${escapeHtml(h.gewerk)} · ${escapeHtml(h.tel)}</p>
+        ${h.notiz?`<p style="margin: 6px 0 0; font-size: 13px; color: var(--ink-soft);">${escapeHtml(h.notiz)}</p>`:''}
+      </div>`;
+    }).join('')}`;
+}
+
+function renderWartung() {
+  const sortiert = state.wartung.slice().sort((a,b)=>a.naechster.localeCompare(b.naechster));
+  return `<div class="section-title">Wartungsplan <button class="btn primary btn-add" data-action="new-wartung"><svg class="ti"><use href="#i-plus"/></svg> Neu</button></div>
+    ${sortiert.length===0?'<p class="empty">Noch keine Wartungstermine</p>':sortiert.map(w=>{
+      const obj = w.objektId?findObjekt(w.objektId):null; const tage = Math.ceil((new Date(w.naechster) - new Date())/86400000);
+      const tageText = tage<0?`<span style="color: var(--accent); font-weight: 500;">${Math.abs(tage)} Tage drüber</span>`:tage<30?`<span style="color: var(--warn); font-weight: 500;">in ${tage} Tagen</span>`:`in ${tage} Tagen`;
+      return `<div class="card"><p class="card-title">${escapeHtml(w.titel)}</p><p class="card-meta">${obj?obj.emoji+' '+escapeHtml(obj.name)+' · ':''}${escapeHtml(w.intervall)} · ${w.naechster} (${tageText})</p>
+        ${w.notiz?`<p style="margin: 6px 0 0; font-size: 13px; color: var(--ink-soft);">${escapeHtml(w.notiz)}</p>`:''}</div>`;
+    }).join('')}`;
+}
+
+// ============== MODAL & FORMS ==============
+function renderModal() {
+  const old = document.getElementById('modal-host'); if (old) old.remove();
+  if (!modalOpen) return;
+  let html = '';
+  if (modalOpen.type==='detail') html = renderSchadenDetail(modalOpen.id);
+  else if (modalOpen.type==='edit-schaden' || modalOpen.type==='neu') html = renderSchadenForm(modalOpen.prefill||{}, modalOpen.editId);
+  else if (modalOpen.type==='handwerker-neu') html = renderHandwerkerForm();
+  else if (modalOpen.type==='wartung-neu') html = renderWartungForm();
+  else if (modalOpen.type==='edit-einheit') html = renderEinheitForm(modalOpen.objId, modalOpen.einId);
+  
+  const host = document.createElement('div'); host.id = 'modal-host';
+  host.innerHTML = `<div class="modal-bg" id="modal-bg"><div class="modal">${html}</div></div>`;
+  document.body.appendChild(host); bindModalHandlers();
+}
+
+function renderSchadenDetail(id) {
+  const s = state.schaeden.find(x=>x.id===id); if (!s) return '';
+  const obj = findObjekt(s.objektId); const ein = findEinheit(s.objektId, s.einheitId); const hw = findHandwerker(s.handwerkerId);
+  const statusBadge = s.status==='offen'?'<span class="badge b-offen">Offen</span>':s.status==='in_bearbeitung'?'<span class="badge b-progress">In Bearbeitung</span>':'<span class="badge b-erledigt">Erledigt</span>';
+  const bearbeiterTxt = s.bearbeiterTyp==='extern' ? `🔧 Extern (${hw?escapeHtml(hw.name):'Kein Handwerker zugewiesen'})` : '👤 Uns selbst (Intern)';
+
+  return `
+    <header class="modal-head">
+      <h3 class="modal-title">${escapeHtml(s.titel)}</h3>
+      <div style="display:flex; gap:8px;">
+        <button class="btn primary small" data-modal-action="edit-schaden" data-id="${s.id}" title="Bearbeiten"><svg class="ti"><use href="#i-edit"/></svg> Bearbeiten</button>
+        <button class="icon-btn" data-modal-action="close" style="color:var(--bg);">✕</button>
+      </div>
+    </header>
+    <div class="modal-body">
+      <div class="badges"><span class="badge b-${s.prioritaet}">${s.prioritaet}</span>${statusBadge}</div>
+      <p class="modal-section-label">Objekt & Einheit</p>
+      <p class="modal-section-value">${obj?obj.emoji+' '+escapeHtml(obj.name):'?'} · ${escapeHtml(ein?ein.bez:'?')}<br><span style="font-size: 13px; color: var(--ink-soft);">Mieter: ${escapeHtml(ein?ein.mieter:'')}</span></p>
+      <p class="modal-section-label">Beschreibung</p>
+      <p class="modal-section-value">${escapeHtml(s.beschreibung)||'<i style="color: var(--ink-mute);">Keine</i>'}</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div><p class="modal-section-label">Kategorie</p><p class="modal-section-value">${escapeHtml(s.kategorie)}</p></div>
+        <div><p class="modal-section-label">Kosten</p><p class="modal-section-value">${fmtEuroInt(s.kosten||0)}</p></div>
+      </div>
+      <p class="modal-section-label">Bearbeitung durch</p>
+      <p class="modal-section-value">${bearbeiterTxt}</p>
+      <p class="modal-section-label">Fotos (${s.fotos.length})</p>
+      <div class="photo-grid">
+        ${s.fotos.map((f,i)=>`<img src="${f}" style="width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); cursor: pointer;" data-action="view-photo" data-id="${s.id}" data-idx="${i}" alt="Foto" />`).join('')}
+        <label style="width: 72px; height: 72px; border: 1px dashed var(--line-soft); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink-mute); font-size: 22px; background: var(--bg-soft);" title="Foto hinzufügen"><svg class="ti"><use href="#i-cam"/></svg><input type="file" accept="image/*" capture="environment" data-action="add-photo" data-id="${s.id}" style="display:none;" /></label>
+      </div>
+      <p class="modal-section-label">Verlauf</p>
+      <div class="timeline">${s.historie.map(h=>`<div class="timeline-entry"><p class="timeline-date">${h.datum}</p>${escapeHtml(h.text)}</div>`).join('')}</div>
+    </div>
+    <footer class="modal-foot" style="justify-content: space-between;">
+      <div style="display:flex; gap:8px;">
+        ${s.status!=='erledigt'?`<button class="btn success" data-modal-action="set-status" data-id="${s.id}" data-status="erledigt">✔ Erledigt</button>`:''}
+        ${s.status==='erledigt'?`<button class="btn" data-modal-action="set-status" data-id="${s.id}" data-status="offen">Öffnen</button>`:''}
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="icon-btn" data-modal-action="delete-schaden" data-id="${s.id}" title="Löschen" style="color:var(--accent);"><svg class="ti"><use href="#i-trash"/></svg></button>
+        <button class="btn" data-modal-action="add-cost" data-id="${s.id}"><svg class="ti"><use href="#i-coin"/></svg> Kosten</button>
+        <button class="btn" data-modal-action="add-note" data-id="${s.id}"><svg class="ti"><use href="#i-note"/></svg> Notiz</button>
+      </div>
+    </footer>
+  `;
+}
+
+function renderSchadenForm(prefill, editId) {
+  let s = editId ? state.schaeden.find(x=>x.id===editId) : null;
+  const objId = s ? s.objektId : (prefill.objektId || state.objekte[0].id);
+  const einId = s ? s.einheitId : prefill.einheitId;
+  const obj = findObjekt(objId);
+  const kat = s ? s.kategorie : 'Sanitär';
+  const prio = s ? s.prioritaet : 'mittel';
+  const bTyp = s ? s.bearbeiterTyp : 'intern';
+
+  return `
+    <header class="modal-head"><h3 class="modal-title">${editId?'Schaden bearbeiten':'Neuer Schaden'}</h3><button class="icon-btn" data-modal-action="close">✕</button></header>
+    <div class="modal-body">
+      <form id="schaden-form" style="display:flex; flex-direction:column; gap:12px;">
+        ${editId ? `<input type="hidden" name="editId" value="${editId}">` : ''}
+        <div class="field"><label>Titel</label><input type="text" name="titel" required value="${s?escapeHtml(s.titel):''}" placeholder="z.B. Wasserschaden Bad" /></div>
+        <div class="field"><label>Objekt</label><select name="objektId" id="form-objekt">${state.objekte.map(o=>`<option value="${o.id}" ${o.id===objId?'selected':''}>${o.emoji} ${escapeHtml(o.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Einheit</label><select name="einheitId" id="form-einheit">${obj.einheiten.map(e=>`<option value="${e.id}" ${e.id===einId?'selected':''}>${escapeHtml(e.id)} · ${escapeHtml(e.bez)} (${escapeHtml(e.mieter)})</option>`).join('')}</select></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Kategorie</label><select name="kategorie">
+            ${['Sanitär','Elektrik','Heizung','Fenster/Türen','Boden/Wand','Außenbereich','Sonstiges'].map(k=>`<option ${k===kat?'selected':''}>${k}</option>`).join('')}
+          </select></div>
+          <div class="field"><label>Priorität</label><select name="prioritaet">
+            <option value="niedrig" ${prio==='niedrig'?'selected':''}>Niedrig</option>
+            <option value="mittel" ${prio==='mittel'?'selected':''}>Mittel</option>
+            <option value="dringend" ${prio==='dringend'?'selected':''}>Dringend</option>
+          </select></div>
+        </div>
+        <div class="field"><label>Bearbeitung durch</label><select name="bearbeiterTyp" id="form-btyp">
+          <option value="intern" ${bTyp==='intern'?'selected':''}>Uns selbst (Intern)</option>
+          <option value="extern" ${bTyp==='extern'?'selected':''}>Handwerker (Extern)</option>
+        </select></div>
+        <div class="field" id="form-hw-wrap" style="display: ${bTyp==='extern'?'block':'none'};">
+          <label>Handwerker zuweisen</label><select name="handwerkerId">
+            <option value="">-- Noch nicht zugewiesen --</option>
+            ${state.handwerker.map(h=>`<option value="${h.id}" ${(s&&s.handwerkerId===h.id)?'selected':''}>${escapeHtml(h.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Beschreibung</label><textarea name="beschreibung" rows="3">${s?escapeHtml(s.beschreibung):''}</textarea></div>
+      </form>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn" data-modal-action="${editId?'back-to-detail':'close'}" data-id="${editId}">Abbrechen</button>
+      <button type="submit" form="schaden-form" class="btn info">Speichern</button>
+    </footer>
+  `;
+}
+
+function renderEinheitForm(objId, einId) {
+  const e = findEinheit(objId, einId);
+  return `
+    <header class="modal-head"><h3 class="modal-title">Einheit bearbeiten</h3><button class="icon-btn" data-modal-action="close">✕</button></header>
+    <div class="modal-body">
+      <form id="einheit-form" style="display:flex; flex-direction:column; gap:12px;">
+        <input type="hidden" name="objId" value="${objId}"><input type="hidden" name="einId" value="${einId}">
+        <div class="field"><label>ID / Nummer</label><input type="text" name="id_new" value="${escapeHtml(e.id)}" required /></div>
+        <div class="field"><label>Bezeichnung</label><input type="text" name="bez" value="${escapeHtml(e.bez)}" /></div>
+        <div class="field"><label>Typ (z.B. Wohnung, Büro)</label><input type="text" name="typ" value="${escapeHtml(e.typ)}" /></div>
+        <div class="field"><label>Mieter Name</label><input type="text" name="mieter" value="${escapeHtml(e.mieter)}" /></div>
+        <div class="field"><label>Wohnfläche (m²)</label><input type="number" step="0.1" name="m2" value="${e.m2}" /></div>
+      </form>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn" data-modal-action="close">Abbrechen</button>
+      <button type="submit" form="einheit-form" class="btn info">Speichern</button>
+    </footer>
+  `;
+}
+
+function renderHandwerkerForm() { return `<header class="modal-head"><h3 class="modal-title">Handwerker anlegen</h3><button class="icon-btn" data-modal-action="close">✕</button></header><div class="modal-body"><form id="handwerker-form" style="display:flex; flex-direction:column; gap:12px;"><div class="field"><label>Name</label><input type="text" name="name" required /></div><div class="field"><label>Gewerk</label><input type="text" name="gewerk" /></div><div class="field"><label>Telefon</label><input type="tel" name="tel" /></div><div class="field"><label>Notizen</label><textarea name="notiz" rows="2"></textarea></div></form></div><footer class="modal-foot"><button class="btn" data-modal-action="close">Abbrechen</button><button type="submit" form="handwerker-form" class="btn info">Speichern</button></footer>`; }
+function renderWartungForm() { return `<header class="modal-head"><h3 class="modal-title">Wartung planen</h3><button class="icon-btn" data-modal-action="close">✕</button></header><div class="modal-body"><form id="wartung-form" style="display:flex; flex-direction:column; gap:12px;"><div class="field"><label>Titel</label><input type="text" name="titel" required /></div><div class="field"><label>Objekt</label><select name="objektId"><option value="">Alle</option>${state.objekte.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select></div><div class="field"><label>Intervall</label><input type="text" name="intervall" value="Jährlich" /></div><div class="field"><label>Nächster Termin</label><input type="date" name="naechster" required /></div><div class="field"><label>Notiz</label><textarea name="notiz" rows="2"></textarea></div></form></div><footer class="modal-foot"><button class="btn" data-modal-action="close">Abbrechen</button><button type="submit" form="wartung-form" class="btn info">Speichern</button></footer>`; }
+
+// ============== EVENT HANDLERS ==============
+function closeAllDrawers() { document.body.classList.remove('drawer-toolbar-open', 'drawer-sidebar-open'); }
+
+function bindHandlers() {
+  document.getElementById('fabNav').onclick = () => document.body.classList.add('drawer-toolbar-open');
+  document.getElementById('fabImmo').onclick = () => document.body.classList.add('drawer-sidebar-open');
+  document.getElementById('drawerBackdrop').onclick = closeAllDrawers;
+  document.querySelectorAll('.drawer-close').forEach(btn => btn.onclick = closeAllDrawers);
+
+  document.querySelectorAll('.nav-item').forEach(b=>{ b.onclick = ()=>{ currentView = b.dataset.view; closeAllDrawers(); render(); document.querySelector('.viewer').scrollTo(0,0); }; });
+
+  document.querySelectorAll('[data-action="new-schaden"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'neu'}; renderModal(); });
+  document.querySelectorAll('[data-action="new-handwerker"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'handwerker-neu'}; renderModal(); });
+  document.querySelectorAll('[data-action="new-wartung"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'wartung-neu'}; renderModal(); });
+  document.querySelectorAll('[data-action="open-schaden"]').forEach(el=> el.onclick = ()=>{ modalOpen={type:'detail', id:el.dataset.id}; renderModal(); });
+  document.querySelectorAll('[data-action="goto-objekt"]').forEach(el=> el.onclick = ()=>{ currentView='objekte'; expandedObjekt=el.dataset.id; expandedEinheit=null; closeAllDrawers(); render(); document.querySelector('.viewer').scrollTo(0,0); });
+  document.querySelectorAll('[data-action="schaden-fuer"]').forEach(el=> el.onclick = (e)=>{ e.stopPropagation(); modalOpen={type:'neu', prefill:{objektId:el.dataset.obj, einheitId:el.dataset.ein}}; renderModal(); });
+  document.querySelectorAll('[data-action="edit-einheit"]').forEach(el=> el.onclick = (e)=>{ e.stopPropagation(); modalOpen={type:'edit-einheit', objId:el.dataset.obj, einId:el.dataset.ein}; renderModal(); });
+  
+  document.querySelectorAll('[data-filter]').forEach(el=> el.onclick = ()=>{ listFilter=el.dataset.filter; render(); });
+  document.querySelectorAll('[data-action="toggle-objekt"]').forEach(el=> el.onclick = ()=>{ const id = el.dataset.id; expandedObjekt = expandedObjekt===id ? null : id; expandedEinheit = null; render(); });
+  document.querySelectorAll('[data-action="toggle-einheit"]').forEach(el=> el.onclick = (e)=>{ if (e.target.closest('button')) return; const id = el.dataset.id; expandedEinheit = expandedEinheit===id ? null : id; render(); });
+
+  // SUCHFELD: Cursor-Position retten, damit man flüssig tippen kann
+  const inSearch = document.getElementById('input-search');
+  if(inSearch) {
+    inSearch.oninput = (e) => {
+      const start = e.target.selectionStart;
+      const end = e.target.selectionEnd;
+      schadenSearch = e.target.value;
+      render(); // DOM wird neugebaut
+      
+      const newSearch = document.getElementById('input-search');
+      if(newSearch) {
+        newSearch.focus();
+        newSearch.setSelectionRange(start, end); // Cursor wieder an die richtige Stelle setzen!
+      }
+    };
+  }
+  
+  const selSort = document.getElementById('sel-sort');
+  if(selSort) selSort.onchange = (e) => { schadenSort = e.target.value; render(); };
+  const selKat = document.getElementById('sel-kat');
+  if(selKat) selKat.onchange = (e) => { schadenFilterKat = e.target.value; render(); };
+}
+
+function bindModalHandlers() {
+  document.querySelectorAll('[data-modal-action="close"]').forEach(el=> el.onclick = ()=>{ modalOpen=null; renderModal(); });
+  document.querySelectorAll('[data-modal-action="back-to-detail"]').forEach(el=> el.onclick = ()=>{ modalOpen={type:'detail', id:el.dataset.id}; renderModal(); });
+  document.querySelectorAll('[data-modal-action="edit-schaden"]').forEach(el=> el.onclick = ()=>{ modalOpen={type:'edit-schaden', editId:el.dataset.id}; renderModal(); });
+
+  const bg = document.getElementById('modal-bg'); if (bg) bg.onclick = (e)=>{ if(e.target===bg){ modalOpen=null; renderModal(); } };
+
+  document.querySelectorAll('[data-modal-action="set-status"]').forEach(el=>{ el.onclick = ()=>{ const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return; s.status = el.dataset.status; s.historie.push({datum:heute(), text:el.dataset.status==='in_bearbeitung'?'In Bearbeitung':el.dataset.status==='erledigt'?'Erledigt':'Geöffnet'}); saveState(); renderModal(); render(); }; });
+  document.querySelectorAll('[data-modal-action="add-cost"]').forEach(el=>{ el.onclick = ()=>{ const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return; const v = prompt('Gesamtkosten in €:', s.kosten||0); if (v===null) return; const num = parseFloat(v.replace(',','.')); if (!isNaN(num)){ s.kosten = num; s.historie.push({datum:heute(), text:`Kosten: ${fmtEuroInt(num)}`}); saveState(); renderModal(); render(); } }; });
+  document.querySelectorAll('[data-modal-action="add-note"]').forEach(el=>{ el.onclick = ()=>{ const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return; const v = prompt('Notiz:'); if (!v) return; s.historie.push({datum:heute(), text:v}); saveState(); renderModal(); }; });
+  document.querySelectorAll('[data-modal-action="delete-schaden"]').forEach(el=>{ el.onclick = ()=>{ if (!confirm('Schaden wirklich löschen?')) return; state.schaeden = state.schaeden.filter(s=>s.id!==el.dataset.id); saveState(); modalOpen=null; renderModal(); render(); }; });
+
+  const formBtyp = document.getElementById('form-btyp');
+  if (formBtyp) formBtyp.onchange = (e) => { document.getElementById('form-hw-wrap').style.display = e.target.value==='extern'?'block':'none'; };
+
+  const objSel = document.getElementById('form-objekt');
+  if (objSel) objSel.onchange = ()=>{ const obj = findObjekt(objSel.value); document.getElementById('form-einheit').innerHTML = obj.einheiten.map(e=>`<option value="${e.id}">${escapeHtml(e.id)} · ${escapeHtml(e.bez)} (${escapeHtml(e.mieter)})</option>`).join(''); };
+
+  const sf = document.getElementById('schaden-form');
+  if (sf) sf.onsubmit = (e)=>{
+    e.preventDefault(); const fd = new FormData(sf); const editId = fd.get('editId');
+    const objId = fd.get('objektId'); const einId = fd.get('einheitId');
+    const bearb = fd.get('bearbeiterTyp'); const hwId = bearb==='extern' ? (fd.get('handwerkerId')||null) : null;
+    if (editId) {
+      const s = state.schaeden.find(x=>x.id===editId);
+      s.titel = fd.get('titel'); s.objektId = objId; s.einheitId = einId; s.kategorie = fd.get('kategorie'); s.prioritaet = fd.get('prioritaet'); s.bearbeiterTyp = bearb; s.handwerkerId = hwId; s.beschreibung = fd.get('beschreibung');
+      s.historie.push({datum:heute(), text:'Details bearbeitet'});
+      saveState(); modalOpen={type:'detail', id:s.id};
+    } else {
+      const neuer = { id: uid(), titel: fd.get('titel'), beschreibung: fd.get('beschreibung'), objektId: objId, einheitId: einId, kategorie: fd.get('kategorie'), prioritaet: fd.get('prioritaet'), bearbeiterTyp: bearb, handwerkerId: hwId, status: 'offen', kosten: 0, erstellt: heute(), fotos: [], historie: [{datum:heute(), text:'Angelegt'}] };
+      state.schaeden.unshift(neuer); saveState(); modalOpen={type:'detail', id:neuer.id};
+    }
+    renderModal(); render();
+  };
+
+  const ef = document.getElementById('einheit-form');
+  if (ef) ef.onsubmit = (e)=>{
+    e.preventDefault(); const fd = new FormData(ef);
+    const objId = fd.get('objId'); const oldEinId = fd.get('einId'); const newEinId = fd.get('id_new');
+    const ein = findEinheit(objId, oldEinId);
+    ein.id = newEinId; ein.bez = fd.get('bez'); ein.typ = fd.get('typ'); ein.mieter = fd.get('mieter'); ein.m2 = parseFloat(fd.get('m2'))||0;
+    if(oldEinId !== newEinId) { state.schaeden.forEach(s => { if(s.objektId===objId && s.einheitId===oldEinId) s.einheitId = newEinId; }); }
+    saveState(); modalOpen=null; renderModal(); render();
+  };
+
+  const hf = document.getElementById('handwerker-form');
+  if (hf) hf.onsubmit = (e)=>{ e.preventDefault(); const fd = new FormData(hf); state.handwerker.push({ id: uid(), name: fd.get('name'), gewerk: fd.get('gewerk'), tel: fd.get('tel'), notiz: fd.get('notiz') }); saveState(); modalOpen=null; renderModal(); render(); };
+  const wf = document.getElementById('wartung-form');
+  if (wf) wf.onsubmit = (e)=>{ e.preventDefault(); const fd = new FormData(wf); state.wartung.push({ id: uid(), titel: fd.get('titel'), objektId: fd.get('objektId')||null, intervall: fd.get('intervall'), naechster: fd.get('naechster'), notiz: fd.get('notiz') }); saveState(); modalOpen=null; renderModal(); render(); };
+  
+  // Photo Handling
+  document.querySelectorAll('[data-action="add-photo"]').forEach(el=>{
+    el.onchange = (e)=>{
+      const file = e.target.files[0]; if (!file) return;
+      const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return;
+      const reader = new FileReader();
+      reader.onload = (ev)=>{
+        const img = new Image();
+        img.onload = ()=>{
+          const max = 1280; let w = img.width, h = img.height;
+          if (w>max || h>max){ if (w>h){ h = h*max/w; w = max; } else { w = w*max/h; h = max; } }
+          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          s.fotos.push(cv.toDataURL('image/jpeg', 0.75)); s.historie.push({datum:heute(), text:'Foto hinzugefügt'});
+          saveState(); renderModal();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+  });
+  document.querySelectorAll('[data-action="view-photo"]').forEach(el=>{
+    el.onclick = ()=>{
+      const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return;
+      const win = window.open();
+      win.document.write(`<body style="margin:0; background:#000; display:flex; align-items:center; justify-content:center; min-height:100vh;"><img src="${s.fotos[parseInt(el.dataset.idx)]}" style="max-width:100%; max-height:100vh;" /></body>`);
+    };
+  });
+}
+
+render();
+</script>
+</body>
+</html>
