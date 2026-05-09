@@ -2,3 +2,6 @@
 .wrangler/
 .dev.vars
 .DS_Store
+
+# Datenschutz: Mieter-Daten nicht ins öffentliche Repo
+backend/seed.sql
