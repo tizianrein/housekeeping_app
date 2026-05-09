@@ -312,64 +312,6 @@ textarea { resize: vertical; min-height: 80px; }
 <button class="fab fab-immo" id="fabImmo" title="Immobilien"><svg class="ti"><use href="#i-building"/></svg></button>
 
 <script>
-// ============== SEED DATA (v4) ==============
-const SEED_OBJEKTE = [
-  { id: 'frankenweg', emoji: '🏢', name: 'Frankenweg', adresse: 'Frankenweg', einheiten: [
-      {id:'F-1', typ:'Wohnung', bez:'WE 1, EG L', mieter:'Vanessa Graner', m2:58.4},
-      {id:'F-2', typ:'Wohnung', bez:'WE 2, EG M', mieter:'Lidia Bretz', m2:46.71},
-      {id:'F-3', typ:'Wohnung', bez:'WE 3, EG R', mieter:'Verena Bruckner', m2:57.9},
-      {id:'F-4', typ:'Wohnung', bez:'WE 4, 1. OG L', mieter:'Patricia Gormann', m2:58.6},
-      {id:'F-5', typ:'Wohnung', bez:'WE 5, 1. OG M', mieter:'Bernd Uffner', m2:47.4},
-      {id:'F-6', typ:'Wohnung', bez:'WE 6, 1. OG R', mieter:'Kathrin Schröder', m2:58.1},
-      {id:'F-7', typ:'Wohnung', bez:'WE 7, 2. OG L', mieter:'Herbert Müller', m2:58.6},
-      {id:'F-8', typ:'Wohnung', bez:'WE 8, 2. OG M', mieter:'Vanessa Graner', m2:47.4},
-      {id:'F-9', typ:'Wohnung', bez:'WE 9, 2. OG R', mieter:'Maike Topfner', m2:58.1},
-      {id:'F-10', typ:'Wohnung', bez:'WE 10, DG R', mieter:'Jasper Wald', m2:55},
-      {id:'F-11', typ:'Büro', bez:'UG, R', mieter:'Vanessa Graner', m2:60}
-  ]},
-  { id: 'kbs13a', emoji: '🍇', name: 'Karl-Broel-Straße 13A', adresse: 'Karl-Broel-Straße 13A', einheiten: [
-      {id:'T-1', typ:'Wohnung', bez:'WE 1, EG L', mieter:'Patricia Gorman', m2:111},
-      {id:'T-2', typ:'Wohnung', bez:'WE 2, EG R', mieter:'Kathrin Schröder', m2:80},
-      {id:'T-3', typ:'Wohnung', bez:'WE 3, 1. OG L', mieter:'Waltraud Nagel', m2:105},
-      {id:'T-4', typ:'Wohnung', bez:'WE 4, 2. OG R', mieter:'Max Kruschner', m2:46},
-      {id:'T-5', typ:'Wohnung', bez:'WE 5, 2. OG L', mieter:'Jasper Wald', m2:105},
-      {id:'T-6', typ:'Wohnung', bez:'WE 6, 2. OG R', mieter:'Vanessa Graner', m2:46}
-  ]},
-  { id: 'kbs13', emoji: '🌻', name: 'Karl-Broel-Straße 13', adresse: 'Karl-Broel-Straße 13', einheiten: [
-      {id:'G-1', typ:'Wohnung', bez:'WE 1, EG', mieter:'Bernd Uffner', m2:118},
-      {id:'G-2', typ:'Wohnung', bez:'WE 2, OG', mieter:'Andreas Topfner', m2:100},
-      {id:'G-3', typ:'Büro', bez:'WE 3, Kegelbahn', mieter:'Leerstand', m2:70}
-  ]},
-  { id: 'bergstr', emoji: '🪲', name: 'Bergstraße', adresse: 'Bergstraße', einheiten: [
-      {id:'B-1', typ:'Ladenlokal', bez:'GE 1, EG', mieter:'Maike Bretz', m2:47},
-      {id:'B-2', typ:'Wohnung', bez:'WE 2, EG', mieter:'Verena Bruckner', m2:123},
-      {id:'B-3', typ:'Wohnung', bez:'WE 3, EG', mieter:'Jasper Wald', m2:33},
-      {id:'B-4', typ:'Wohnung', bez:'WE 4, 1. OG', mieter:'Kathrin Schröder', m2:45},
-      {id:'B-5', typ:'Wohnung', bez:'WE 5, 1. OG', mieter:'Patricia Gorman', m2:124}
-  ]},
-  { id: 'jena', emoji: '🏡', name: 'Jena', adresse: 'Jena', einheiten: [
-      {id:'J-1', typ:'Wohnung', bez:'WE 1, EG', mieter:'Waltraud Kruschner', m2:110},
-      {id:'J-2', typ:'Wohnung', bez:'WE 2, EG', mieter:'Andreas Topfner', m2:150}
-  ]}
-];
-
-const SEED_HANDWERKER = [
-  {id:'h1', name:'Sanitär Müller GmbH', gewerk:'Sanitär', tel:'0228-123456', notiz:'Schnell'},
-  {id:'h2', name:'Elektro Schmidt', gewerk:'Elektrik', tel:'0228-234567', notiz:''},
-  {id:'h3', name:'Heizung Weber', gewerk:'Heizung', tel:'0228-345678', notiz:'Wartet Brennwerttherme'}
-];
-
-const SEED_SCHAEDEN = [
-  {id:'s1', titel:'Wasserschaden Bad', beschreibung:'Feuchter Fleck an Decke.', objektId:'frankenweg', einheitId:'F-3', kategorie:'Sanitär', prioritaet:'dringend', status:'in_bearbeitung', bearbeiterTyp:'extern', handwerkerId:'h1', kosten:0, erstellt:'2025-04-28', fotos:[], historie:[{datum:'2025-04-28', text:'Gemeldet'}, {datum:'2025-04-29', text:'Müller beauftragt'}]},
-  {id:'s2', titel:'Heizung tropft', beschreibung:'Ventil Wohnzimmer.', objektId:'kbs13a', einheitId:'T-2', kategorie:'Heizung', prioritaet:'mittel', status:'offen', bearbeiterTyp:'intern', handwerkerId:null, kosten:0, erstellt:'2025-05-03', fotos:[], historie:[{datum:'2025-05-03', text:'Angelegt'}]},
-  {id:'s5', titel:'Briefkasten erneuert', beschreibung:'Neuer Kasten montiert.', objektId:'frankenweg', einheitId:'F-1', kategorie:'Sonstiges', prioritaet:'niedrig', status:'erledigt', bearbeiterTyp:'intern', handwerkerId:null, kosten:85, erstellt:'2025-03-10', fotos:[], historie:[{datum:'2025-03-15', text:'Erledigt, 85€'}]}
-];
-
-const SEED_WARTUNG = [
-  {id:'w1', titel:'Heizungswartung', objektId:'frankenweg', intervall:'Jährlich', naechster:'2025-09-01', notiz:''},
-  {id:'w2', titel:'Rauchmelder-Check', objektId:null, intervall:'Jährlich', naechster:'2025-10-01', notiz:''}
-];
-
 // ============== BACKEND CONFIG ==============
 const API_BASE = 'https://backend.familie-rein.workers.dev';
 const TOKEN_KEY = 'immo_auth_token';
@@ -382,10 +324,7 @@ let expandedObjekt = null; let expandedEinheit = null;
 let syncTimer = null;
 let syncStatus = 'idle';
 
-// Filter/Search State for Damages
-let schadenSearch = '';
-let schadenSort = 'neu';
-let schadenFilterKat = 'alle';
+// Filter State
 let listFilter = 'alle';
 
 // ============== API LAYER ==============
