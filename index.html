@@ -506,21 +506,29 @@ function renderSchaeden() {
   `;
 }
 
-function renderObjekte() { return `<div class="section-title">Objekte & Einheiten</div>${state.objekte.map(renderObjektCard).join('')}`; }
+function renderObjekte() { 
+  return `<div class="section-title">Objekte & Einheiten <button class="btn primary btn-add" data-action="new-objekt"><svg class="ti"><use href="#i-plus"/></svg> Neues Objekt</button></div>${state.objekte.map(renderObjektCard).join('')}`; 
+}
 
 function renderObjektCard(o) {
   const offen = state.schaeden.filter(s=>s.objektId===o.id && s.status!=='erledigt').length;
   const totalM2 = o.einheiten.reduce((a,e)=>a+(parseFloat(e.m2)||0), 0);
+  const totalMiete = o.einheiten.reduce((a,e)=>a+(parseFloat(e.kmMonat)||0), 0);
   const expanded = expandedObjekt===o.id;
   return `<div class="obj-card ${expanded?'expanded':''}" data-obj-id="${o.id}">
     <div class="obj-head" data-action="toggle-objekt" data-id="${o.id}">
-      <div>
+      <div style="flex:1; min-width:0;">
         <p class="obj-name"><span style="font-size: 20px;">${o.emoji}</span> ${escapeHtml(o.name)}</p>
-        <p class="obj-stats">${o.einheiten.length} Einheiten · ${totalM2.toFixed(0)} m² · ${offen} offene Schäden</p>
+        <p class="obj-stats">${o.einheiten.length} Einheiten · ${totalM2.toFixed(0)} m² · ${fmtEuroInt(totalMiete)}/Mo · ${offen} offene Schäden</p>
       </div>
       <svg class="ti obj-chev"><use href="#i-chev"/></svg>
     </div>
     <div class="obj-body">
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin: 16px 0 14px;">
+        <button class="btn small" data-action="edit-objekt" data-id="${o.id}"><svg class="ti"><use href="#i-edit"/></svg> Objekt bearbeiten</button>
+        <button class="btn small primary" data-action="new-einheit" data-id="${o.id}"><svg class="ti"><use href="#i-plus"/></svg> Neue Einheit</button>
+        <button class="btn small danger" data-action="delete-objekt" data-id="${o.id}"><svg class="ti"><use href="#i-trash"/></svg></button>
+      </div>
       ${o.einheiten.map(e=>renderEinheitRow(o, e)).join('')}
     </div>
   </div>`;
@@ -529,12 +537,22 @@ function renderObjektCard(o) {
 function renderEinheitRow(o, e) {
   const eOffen = state.schaeden.filter(s=>s.einheitId===e.id && s.status!=='erledigt').length;
   const expanded = expandedEinheit===e.id;
+  const naechste = e.naechste || [];
+  const naechsteErhoehung = naechste.filter(n => {
+    if (!n.datum) return false;
+    const parts = n.datum.split('.');
+    return parts.length===3 && new Date(parts[2]+'-'+parts[1]+'-'+parts[0]) > new Date();
+  })[0];
   return `<div class="einheit ${expanded?'expanded':''}" data-action="toggle-einheit" data-id="${e.id}">
     <div class="einheit-row">
       <div style="flex:1; min-width:0;">
         <div class="einheit-name">${escapeHtml(e.id)} · ${escapeHtml(e.bez)}</div>
         <div class="einheit-mieter">${escapeHtml(e.mieter)}</div>
-        <div class="einheit-stats">${e.m2} m²${eOffen>0?' · <span style="color:var(--accent);">'+eOffen+' offen</span>':''}</div>
+        <div class="einheit-stats">${e.m2} m² · ${(e.kmM2||0).toFixed(2).replace('.',',')} €/m²${eOffen>0?' · <span style="color:var(--accent);">'+eOffen+' offen</span>':''}</div>
+      </div>
+      <div style="text-align:right; font-family:var(--mono); font-size:13px; font-weight:600; white-space:nowrap;">
+        ${fmtEuroInt(e.kmMonat||0)}/Mo
+        ${naechsteErhoehung?`<div style="font-family:var(--mono); font-size:10px; color:var(--ink-mute); font-weight:400; margin-top:2px;">↑ ab ${naechsteErhoehung.datum.slice(3)}</div>`:''}
       </div>
     </div>
     <div class="einheit-detail">
@@ -543,10 +561,26 @@ function renderEinheitRow(o, e) {
         <div class="detail-grid-item"><p class="lbl">Typ</p><p class="val">${escapeHtml(e.typ)}</p></div>
         <div class="detail-grid-item"><p class="lbl">Bezeichnung</p><p class="val">${escapeHtml(e.bez)}</p></div>
         <div class="detail-grid-item"><p class="lbl">Mieter</p><p class="val">${escapeHtml(e.mieter)}</p></div>
+        <div class="detail-grid-item"><p class="lbl">Kaltmiete / Monat</p><p class="val">${fmtEuroInt(e.kmMonat||0)}</p></div>
+        <div class="detail-grid-item"><p class="lbl">Nebenkosten / Monat</p><p class="val">${fmtEuroInt(e.nkMonat||0)}</p></div>
+        <div class="detail-grid-item"><p class="lbl">€ pro m²</p><p class="val">${(e.kmM2||0).toFixed(2).replace('.',',')} €</p></div>
+        <div class="detail-grid-item"><p class="lbl">Letzte Erhöhung</p><p class="val">${escapeHtml(e.letzteErhoehung||'–')}</p></div>
       </div>
-      <div style="margin-top: 12px; display: flex; gap: 8px;">
+      ${naechste.length>0 ? `
+        <div style="border-top: 1px solid var(--line-soft); padding-top: 12px; margin-top: 4px;">
+          <p class="lbl" style="margin-bottom:8px;">Geplante Mieterhöhungen</p>
+          ${naechste.map(n=>`
+            <div style="display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; border-bottom:1px solid var(--line-soft); font-family:var(--mono); font-size:12px;">
+              <span style="color:var(--ink-soft);">${escapeHtml(n.datum||'')}</span>
+              <span style="font-weight:600;">${(n.neuKmM2||0).toFixed(2).replace('.',',')} €/m² <span style="font-size:10px; color:var(--ok); margin-left:6px;">+${n.prozent||0}% von ${(n.alt||0).toFixed(2).replace('.',',')} €</span></span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
         <button class="btn small" data-action="edit-einheit" data-obj="${o.id}" data-ein="${e.id}"><svg class="ti"><use href="#i-edit"/></svg> Bearbeiten</button>
         <button class="btn small primary" data-action="schaden-fuer" data-obj="${o.id}" data-ein="${e.id}"><svg class="ti"><use href="#i-plus"/></svg> Schaden erfassen</button>
+        <button class="btn small danger" data-action="delete-einheit" data-obj="${o.id}" data-ein="${e.id}"><svg class="ti"><use href="#i-trash"/></svg></button>
       </div>
     </div>
   </div>`;
@@ -560,18 +594,27 @@ function renderHandwerker() {
         <div class="card-head"><p class="card-title">${escapeHtml(h.name)}</p><span class="badge b-niedrig">${auftraege} Aufträge</span></div>
         <p class="card-meta">${escapeHtml(h.gewerk)} · ${escapeHtml(h.tel)}</p>
         ${h.notiz?`<p style="margin: 6px 0 0; font-size: 13px; color: var(--ink-soft);">${escapeHtml(h.notiz)}</p>`:''}
+        <div style="margin-top:10px; display:flex; gap:6px;">
+          <button class="btn small" data-action="edit-handwerker" data-id="${h.id}"><svg class="ti"><use href="#i-edit"/></svg> Bearbeiten</button>
+          <button class="btn small danger" data-action="delete-handwerker" data-id="${h.id}"><svg class="ti"><use href="#i-trash"/></svg></button>
+        </div>
       </div>`;
     }).join('')}`;
 }
 
 function renderWartung() {
-  const sortiert = state.wartung.slice().sort((a,b)=>a.naechster.localeCompare(b.naechster));
+  const sortiert = state.wartung.slice().sort((a,b)=>(a.naechster||'').localeCompare(b.naechster||''));
   return `<div class="section-title">Wartungsplan <button class="btn primary btn-add" data-action="new-wartung"><svg class="ti"><use href="#i-plus"/></svg> Neu</button></div>
     ${sortiert.length===0?'<p class="empty">Noch keine Wartungstermine</p>':sortiert.map(w=>{
       const obj = w.objektId?findObjekt(w.objektId):null; const tage = Math.ceil((new Date(w.naechster) - new Date())/86400000);
       const tageText = tage<0?`<span style="color: var(--accent); font-weight: 500;">${Math.abs(tage)} Tage drüber</span>`:tage<30?`<span style="color: var(--warn); font-weight: 500;">in ${tage} Tagen</span>`:`in ${tage} Tagen`;
       return `<div class="card"><p class="card-title">${escapeHtml(w.titel)}</p><p class="card-meta">${obj?obj.emoji+' '+escapeHtml(obj.name)+' · ':''}${escapeHtml(w.intervall)} · ${w.naechster} (${tageText})</p>
-        ${w.notiz?`<p style="margin: 6px 0 0; font-size: 13px; color: var(--ink-soft);">${escapeHtml(w.notiz)}</p>`:''}</div>`;
+        ${w.notiz?`<p style="margin: 6px 0 0; font-size: 13px; color: var(--ink-soft);">${escapeHtml(w.notiz)}</p>`:''}
+        <div style="margin-top:10px; display:flex; gap:6px;">
+          <button class="btn small" data-action="edit-wartung" data-id="${w.id}"><svg class="ti"><use href="#i-edit"/></svg> Bearbeiten</button>
+          <button class="btn small danger" data-action="delete-wartung" data-id="${w.id}"><svg class="ti"><use href="#i-trash"/></svg></button>
+        </div>
+      </div>`;
     }).join('')}`;
 }
 
@@ -583,8 +626,13 @@ function renderModal() {
   if (modalOpen.type==='detail') html = renderSchadenDetail(modalOpen.id);
   else if (modalOpen.type==='edit-schaden' || modalOpen.type==='neu') html = renderSchadenForm(modalOpen.prefill||{}, modalOpen.editId);
   else if (modalOpen.type==='handwerker-neu') html = renderHandwerkerForm();
+  else if (modalOpen.type==='handwerker-edit') html = renderHandwerkerForm(modalOpen.id);
   else if (modalOpen.type==='wartung-neu') html = renderWartungForm();
+  else if (modalOpen.type==='wartung-edit') html = renderWartungForm(modalOpen.id);
   else if (modalOpen.type==='edit-einheit') html = renderEinheitForm(modalOpen.objId, modalOpen.einId);
+  else if (modalOpen.type==='neu-einheit') html = renderEinheitForm(modalOpen.objId, null);
+  else if (modalOpen.type==='edit-objekt') html = renderObjektForm(modalOpen.id);
+  else if (modalOpen.type==='neu-objekt') html = renderObjektForm(null);
   
   const host = document.createElement('div'); host.id = 'modal-host';
   host.innerHTML = `<div class="modal-bg" id="modal-bg"><div class="modal">${html}</div></div>`;
@@ -687,17 +735,51 @@ function renderSchadenForm(prefill, editId) {
 }
 
 function renderEinheitForm(objId, einId) {
-  const e = findEinheit(objId, einId);
+  const isNew = !einId;
+  const e = isNew ? { id:'', bez:'', typ:'Wohnung', mieter:'', m2:0, kmM2:0, kmMonat:0, nkMonat:0, letzteErhoehung:'', naechste:[] } : findEinheit(objId, einId);
+  if (!e) return '';
+  const naechste = e.naechste || [];
   return `
-    <header class="modal-head"><h3 class="modal-title">Einheit bearbeiten</h3><button class="icon-btn" data-modal-action="close">✕</button></header>
+    <header class="modal-head">
+      <h3 class="modal-title">${isNew?'Neue Einheit':'Einheit bearbeiten'}</h3>
+      <button class="icon-btn" data-modal-action="close">✕</button>
+    </header>
     <div class="modal-body">
       <form id="einheit-form" style="display:flex; flex-direction:column; gap:12px;">
-        <input type="hidden" name="objId" value="${objId}"><input type="hidden" name="einId" value="${einId}">
-        <div class="field"><label>ID / Nummer</label><input type="text" name="id_new" value="${escapeHtml(e.id)}" required /></div>
-        <div class="field"><label>Bezeichnung</label><input type="text" name="bez" value="${escapeHtml(e.bez)}" /></div>
-        <div class="field"><label>Typ (z.B. Wohnung, Büro)</label><input type="text" name="typ" value="${escapeHtml(e.typ)}" /></div>
-        <div class="field"><label>Mieter Name</label><input type="text" name="mieter" value="${escapeHtml(e.mieter)}" /></div>
-        <div class="field"><label>Wohnfläche (m²)</label><input type="number" step="0.1" name="m2" value="${e.m2}" /></div>
+        <input type="hidden" name="objId" value="${objId}">
+        <input type="hidden" name="einId" value="${einId||''}">
+        <div style="display:grid; grid-template-columns:1fr 2fr; gap:12px;">
+          <div class="field"><label>ID / Nummer</label><input type="text" name="id_new" value="${escapeHtml(e.id)}" required placeholder="z.B. F-1" /></div>
+          <div class="field"><label>Bezeichnung</label><input type="text" name="bez" value="${escapeHtml(e.bez)}" placeholder="z.B. WE 1, EG L" /></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Typ</label>
+            <select name="typ">
+              <option value="Wohnung" ${e.typ==='Wohnung'?'selected':''}>Wohnung</option>
+              <option value="Büro" ${e.typ==='Büro'?'selected':''}>Büro</option>
+              <option value="Ladenlokal" ${e.typ==='Ladenlokal'?'selected':''}>Ladenlokal</option>
+              <option value="Sonstiges" ${e.typ==='Sonstiges'?'selected':''}>Sonstiges</option>
+            </select>
+          </div>
+          <div class="field"><label>Wohnfläche (m²)</label><input type="number" step="0.01" name="m2" value="${e.m2||0}" /></div>
+        </div>
+        <div class="field"><label>Mieter</label><input type="text" name="mieter" value="${escapeHtml(e.mieter||'')}" placeholder="Name oder 'Leerstand'" /></div>
+        
+        <p class="modal-section-label" style="border-top:1px solid var(--line-soft); padding-top:14px; margin-top:6px;">Mietpreise</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+          <div class="field"><label>€ pro m²</label><input type="number" step="0.01" name="kmM2" value="${e.kmM2||0}" /></div>
+          <div class="field"><label>Kaltmiete / Monat</label><input type="number" step="0.01" name="kmMonat" value="${e.kmMonat||0}" /></div>
+          <div class="field"><label>Nebenkosten / Monat</label><input type="number" step="0.01" name="nkMonat" value="${e.nkMonat||0}" /></div>
+        </div>
+        <div class="field"><label>Letzte Erhöhung (Datum/Notiz)</label><input type="text" name="letzteErhoehung" value="${escapeHtml(e.letzteErhoehung||'')}" placeholder="z.B. 01.03.2022" /></div>
+        
+        <p class="modal-section-label" style="border-top:1px solid var(--line-soft); padding-top:14px; margin-top:6px;">
+          Geplante Mieterhöhungen
+          <button type="button" class="btn small" data-form-action="add-erhoehung"><svg class="ti"><use href="#i-plus"/></svg></button>
+        </p>
+        <div id="erhoehungen-list" style="display:flex; flex-direction:column; gap:8px;">
+          ${naechste.map((n,i)=>renderErhoehungZeile(n, i)).join('')}
+        </div>
       </form>
     </div>
     <footer class="modal-foot">
@@ -707,8 +789,56 @@ function renderEinheitForm(objId, einId) {
   `;
 }
 
-function renderHandwerkerForm() { return `<header class="modal-head"><h3 class="modal-title">Handwerker anlegen</h3><button class="icon-btn" data-modal-action="close">✕</button></header><div class="modal-body"><form id="handwerker-form" style="display:flex; flex-direction:column; gap:12px;"><div class="field"><label>Name</label><input type="text" name="name" required /></div><div class="field"><label>Gewerk</label><input type="text" name="gewerk" /></div><div class="field"><label>Telefon</label><input type="tel" name="tel" /></div><div class="field"><label>Notizen</label><textarea name="notiz" rows="2"></textarea></div></form></div><footer class="modal-foot"><button class="btn" data-modal-action="close">Abbrechen</button><button type="submit" form="handwerker-form" class="btn info">Speichern</button></footer>`; }
-function renderWartungForm() { return `<header class="modal-head"><h3 class="modal-title">Wartung planen</h3><button class="icon-btn" data-modal-action="close">✕</button></header><div class="modal-body"><form id="wartung-form" style="display:flex; flex-direction:column; gap:12px;"><div class="field"><label>Titel</label><input type="text" name="titel" required /></div><div class="field"><label>Objekt</label><select name="objektId"><option value="">Alle</option>${state.objekte.map(o=>`<option value="${o.id}">${o.name}</option>`).join('')}</select></div><div class="field"><label>Intervall</label><input type="text" name="intervall" value="Jährlich" /></div><div class="field"><label>Nächster Termin</label><input type="date" name="naechster" required /></div><div class="field"><label>Notiz</label><textarea name="notiz" rows="2"></textarea></div></form></div><footer class="modal-foot"><button class="btn" data-modal-action="close">Abbrechen</button><button type="submit" form="wartung-form" class="btn info">Speichern</button></footer>`; }
+function renderErhoehungZeile(n, idx) {
+  return `<div class="erhoehung-zeile" data-idx="${idx}" style="display:grid; grid-template-columns: 110px 1fr 1fr 60px auto; gap:6px; align-items:end; padding:8px; background:var(--bg-soft); border-radius:var(--radius);">
+    <div class="field" style="margin:0;"><label style="font-size:9px;">Datum</label><input type="text" name="erh_datum_${idx}" value="${escapeHtml(n.datum||'')}" placeholder="01.03.2025" style="font-family:var(--mono); font-size:12px;" /></div>
+    <div class="field" style="margin:0;"><label style="font-size:9px;">Alt €/m²</label><input type="number" step="0.01" name="erh_alt_${idx}" value="${n.alt||0}" style="font-family:var(--mono); font-size:12px;" /></div>
+    <div class="field" style="margin:0;"><label style="font-size:9px;">Neu €/m²</label><input type="number" step="0.01" name="erh_neu_${idx}" value="${n.neuKmM2||0}" style="font-family:var(--mono); font-size:12px;" /></div>
+    <div class="field" style="margin:0;"><label style="font-size:9px;">%</label><input type="number" step="0.1" name="erh_prozent_${idx}" value="${n.prozent||0}" style="font-family:var(--mono); font-size:12px;" /></div>
+    <button type="button" class="icon-btn" data-form-action="remove-erhoehung" data-idx="${idx}" title="Löschen" style="color:var(--accent);"><svg class="ti"><use href="#i-trash"/></svg></button>
+  </div>`;
+}
+
+function renderObjektForm(objId) {
+  const isNew = !objId;
+  const o = isNew ? { id:'', name:'', adresse:'', emoji:'🏠' } : findObjekt(objId);
+  if (!o) return '';
+  return `
+    <header class="modal-head">
+      <h3 class="modal-title">${isNew?'Neues Objekt':'Objekt bearbeiten'}</h3>
+      <button class="icon-btn" data-modal-action="close">✕</button>
+    </header>
+    <div class="modal-body">
+      <form id="objekt-form" style="display:flex; flex-direction:column; gap:12px;">
+        <input type="hidden" name="objId" value="${objId||''}">
+        <div style="display:grid; grid-template-columns:80px 1fr; gap:12px;">
+          <div class="field"><label>Emoji</label><input type="text" name="emoji" value="${o.emoji||'🏠'}" maxlength="4" style="text-align:center; font-size:20px;" /></div>
+          <div class="field"><label>Name</label><input type="text" name="name" value="${escapeHtml(o.name)}" required placeholder="z.B. Frankenweg" /></div>
+        </div>
+        <div class="field"><label>Adresse</label><input type="text" name="adresse" value="${escapeHtml(o.adresse||'')}" placeholder="z.B. Frankenweg 12, 53113 Bonn" /></div>
+        ${isNew?'<div class="field"><label>ID (intern, eindeutig)</label><input type="text" name="id_new" required placeholder="z.B. frankenweg" pattern="[a-z0-9_-]+" title="Nur Kleinbuchstaben, Zahlen, _ und -" /></div>':'<input type="hidden" name="id_new" value="'+escapeHtml(o.id)+'" />'}
+      </form>
+    </div>
+    <footer class="modal-foot">
+      <button class="btn" data-modal-action="close">Abbrechen</button>
+      <button type="submit" form="objekt-form" class="btn info">Speichern</button>
+    </footer>
+  `;
+}
+
+function renderHandwerkerForm(editId) {
+  const isNew = !editId;
+  const h = isNew ? {name:'',gewerk:'',tel:'',notiz:''} : findHandwerker(editId);
+  if (!h) return '';
+  return `<header class="modal-head"><h3 class="modal-title">${isNew?'Handwerker anlegen':'Handwerker bearbeiten'}</h3><button class="icon-btn" data-modal-action="close">✕</button></header><div class="modal-body"><form id="handwerker-form" style="display:flex; flex-direction:column; gap:12px;"><input type="hidden" name="editId" value="${editId||''}" /><div class="field"><label>Name</label><input type="text" name="name" value="${escapeHtml(h.name)}" required /></div><div class="field"><label>Gewerk</label><input type="text" name="gewerk" value="${escapeHtml(h.gewerk||'')}" /></div><div class="field"><label>Telefon</label><input type="tel" name="tel" value="${escapeHtml(h.tel||'')}" /></div><div class="field"><label>Notizen</label><textarea name="notiz" rows="2">${escapeHtml(h.notiz||'')}</textarea></div></form></div><footer class="modal-foot"><button class="btn" data-modal-action="close">Abbrechen</button><button type="submit" form="handwerker-form" class="btn info">Speichern</button></footer>`;
+}
+
+function renderWartungForm(editId) {
+  const isNew = !editId;
+  const w = isNew ? {titel:'',objektId:'',intervall:'Jährlich',naechster:'',notiz:''} : state.wartung.find(x=>x.id===editId);
+  if (!w) return '';
+  return `<header class="modal-head"><h3 class="modal-title">${isNew?'Wartung planen':'Wartung bearbeiten'}</h3><button class="icon-btn" data-modal-action="close">✕</button></header><div class="modal-body"><form id="wartung-form" style="display:flex; flex-direction:column; gap:12px;"><input type="hidden" name="editId" value="${editId||''}" /><div class="field"><label>Titel</label><input type="text" name="titel" value="${escapeHtml(w.titel)}" required /></div><div class="field"><label>Objekt</label><select name="objektId"><option value="">Alle / Übergreifend</option>${state.objekte.map(o=>`<option value="${o.id}" ${o.id===w.objektId?'selected':''}>${o.emoji} ${escapeHtml(o.name)}</option>`).join('')}</select></div><div class="field"><label>Intervall</label><input type="text" name="intervall" value="${escapeHtml(w.intervall||'Jährlich')}" /></div><div class="field"><label>Nächster Termin</label><input type="date" name="naechster" value="${w.naechster||''}" required /></div><div class="field"><label>Notiz</label><textarea name="notiz" rows="2">${escapeHtml(w.notiz||'')}</textarea></div></form></div><footer class="modal-foot"><button class="btn" data-modal-action="close">Abbrechen</button><button type="submit" form="wartung-form" class="btn info">Speichern</button></footer>`;
+}
 
 // ============== EVENT HANDLERS ==============
 function closeAllDrawers() { document.body.classList.remove('drawer-toolbar-open', 'drawer-sidebar-open'); }
@@ -723,7 +853,49 @@ function bindHandlers() {
 
   document.querySelectorAll('[data-action="new-schaden"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'neu'}; renderModal(); });
   document.querySelectorAll('[data-action="new-handwerker"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'handwerker-neu'}; renderModal(); });
+  document.querySelectorAll('[data-action="edit-handwerker"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'handwerker-edit', id:b.dataset.id}; renderModal(); });
+  document.querySelectorAll('[data-action="delete-handwerker"]').forEach(b=> b.onclick = ()=>{
+    const h = findHandwerker(b.dataset.id); if (!h) return;
+    if (!confirm(`Handwerker "${h.name}" wirklich löschen?`)) return;
+    state.handwerker = state.handwerker.filter(x=>x.id!==b.dataset.id);
+    saveState(); render();
+  });
   document.querySelectorAll('[data-action="new-wartung"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'wartung-neu'}; renderModal(); });
+  document.querySelectorAll('[data-action="edit-wartung"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'wartung-edit', id:b.dataset.id}; renderModal(); });
+  document.querySelectorAll('[data-action="delete-wartung"]').forEach(b=> b.onclick = ()=>{
+    if (!confirm('Wartungstermin wirklich löschen?')) return;
+    state.wartung = state.wartung.filter(x=>x.id!==b.dataset.id);
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-action="new-objekt"]').forEach(b=> b.onclick = ()=>{ modalOpen={type:'neu-objekt'}; renderModal(); });
+  document.querySelectorAll('[data-action="edit-objekt"]').forEach(b=> b.onclick = (e)=>{ e.stopPropagation(); modalOpen={type:'edit-objekt', id:b.dataset.id}; renderModal(); });
+  document.querySelectorAll('[data-action="delete-objekt"]').forEach(b=> b.onclick = (e)=>{
+    e.stopPropagation();
+    const o = findObjekt(b.dataset.id); if (!o) return;
+    const offen = state.schaeden.filter(s=>s.objektId===o.id).length;
+    let msg = `Objekt "${o.name}" mit ${o.einheiten.length} Einheiten wirklich löschen?`;
+    if (offen>0) msg += `\n\nACHTUNG: ${offen} zugehörige Schäden werden ebenfalls gelöscht!`;
+    if (!confirm(msg)) return;
+    state.objekte = state.objekte.filter(x=>x.id!==b.dataset.id);
+    state.schaeden = state.schaeden.filter(s=>s.objektId!==b.dataset.id);
+    state.wartung.forEach(w=>{ if(w.objektId===b.dataset.id) w.objektId = null; });
+    if (expandedObjekt===b.dataset.id) expandedObjekt = null;
+    saveState(); render();
+  });
+  document.querySelectorAll('[data-action="new-einheit"]').forEach(b=> b.onclick = (e)=>{ e.stopPropagation(); modalOpen={type:'neu-einheit', objId:b.dataset.id}; renderModal(); });
+  document.querySelectorAll('[data-action="delete-einheit"]').forEach(b=> b.onclick = (e)=>{
+    e.stopPropagation();
+    const ein = findEinheit(b.dataset.obj, b.dataset.ein); if (!ein) return;
+    const offen = state.schaeden.filter(s=>s.einheitId===ein.id).length;
+    let msg = `Einheit "${ein.id} · ${ein.bez}" wirklich löschen?`;
+    if (offen>0) msg += `\n\nACHTUNG: ${offen} zugehörige Schäden werden ebenfalls gelöscht!`;
+    if (!confirm(msg)) return;
+    const o = findObjekt(b.dataset.obj);
+    o.einheiten = o.einheiten.filter(x=>x.id!==b.dataset.ein);
+    state.schaeden = state.schaeden.filter(s=>!(s.objektId===b.dataset.obj && s.einheitId===b.dataset.ein));
+    if (expandedEinheit===b.dataset.ein) expandedEinheit = null;
+    saveState(); render();
+  });
   document.querySelectorAll('[data-action="open-schaden"]').forEach(el=> el.onclick = ()=>{ modalOpen={type:'detail', id:el.dataset.id}; renderModal(); });
   document.querySelectorAll('[data-action="goto-objekt"]').forEach(el=> el.onclick = ()=>{ currentView='objekte'; expandedObjekt=el.dataset.id; expandedEinheit=null; closeAllDrawers(); render(); document.querySelector('.viewer').scrollTo(0,0); });
   document.querySelectorAll('[data-action="schaden-fuer"]').forEach(el=> el.onclick = (e)=>{ e.stopPropagation(); modalOpen={type:'neu', prefill:{objektId:el.dataset.obj, einheitId:el.dataset.ein}}; renderModal(); });
@@ -795,16 +967,104 @@ function bindModalHandlers() {
   if (ef) ef.onsubmit = (e)=>{
     e.preventDefault(); const fd = new FormData(ef);
     const objId = fd.get('objId'); const oldEinId = fd.get('einId'); const newEinId = fd.get('id_new');
-    const ein = findEinheit(objId, oldEinId);
-    ein.id = newEinId; ein.bez = fd.get('bez'); ein.typ = fd.get('typ'); ein.mieter = fd.get('mieter'); ein.m2 = parseFloat(fd.get('m2'))||0;
-    if(oldEinId !== newEinId) { state.schaeden.forEach(s => { if(s.objektId===objId && s.einheitId===oldEinId) s.einheitId = newEinId; }); }
+    const isNew = !oldEinId;
+    
+    // Erhöhungen aus dem Formular einsammeln
+    const naechste = [];
+    document.querySelectorAll('#erhoehungen-list .erhoehung-zeile').forEach(zeile => {
+      const idx = zeile.dataset.idx;
+      const datum = fd.get(`erh_datum_${idx}`);
+      if (!datum) return;
+      naechste.push({
+        datum: datum,
+        alt: parseFloat(fd.get(`erh_alt_${idx}`))||0,
+        neuKmM2: parseFloat(fd.get(`erh_neu_${idx}`))||0,
+        prozent: parseFloat(fd.get(`erh_prozent_${idx}`))||0
+      });
+    });
+    
+    const data = {
+      id: newEinId,
+      bez: fd.get('bez'),
+      typ: fd.get('typ'),
+      mieter: fd.get('mieter'),
+      m2: parseFloat(fd.get('m2'))||0,
+      kmM2: parseFloat(fd.get('kmM2'))||0,
+      kmMonat: parseFloat(fd.get('kmMonat'))||0,
+      nkMonat: parseFloat(fd.get('nkMonat'))||0,
+      letzteErhoehung: fd.get('letzteErhoehung')||'',
+      naechste: naechste
+    };
+    
+    const o = findObjekt(objId);
+    if (isNew) {
+      // ID-Eindeutigkeit prüfen
+      if (o.einheiten.some(x=>x.id===newEinId)) { alert('Eine Einheit mit dieser ID existiert bereits.'); return; }
+      o.einheiten.push(data);
+    } else {
+      const ein = findEinheit(objId, oldEinId);
+      Object.assign(ein, data);
+      if(oldEinId !== newEinId) { state.schaeden.forEach(s => { if(s.objektId===objId && s.einheitId===oldEinId) s.einheitId = newEinId; }); }
+    }
     saveState(); modalOpen=null; renderModal(); render();
   };
 
+  // Erhöhungs-Zeile hinzufügen / entfernen
+  document.querySelectorAll('[data-form-action="add-erhoehung"]').forEach(b=> b.onclick = ()=>{
+    const list = document.getElementById('erhoehungen-list');
+    const idx = list.children.length;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = renderErhoehungZeile({datum:'',alt:0,neuKmM2:0,prozent:0}, idx);
+    list.appendChild(wrap.firstElementChild);
+    // Re-bind Remove-Buttons
+    bindErhoehungRemoveButtons();
+  });
+  function bindErhoehungRemoveButtons() {
+    document.querySelectorAll('[data-form-action="remove-erhoehung"]').forEach(b=> b.onclick = (ev)=>{
+      ev.preventDefault();
+      b.closest('.erhoehung-zeile').remove();
+    });
+  }
+  bindErhoehungRemoveButtons();
+
   const hf = document.getElementById('handwerker-form');
-  if (hf) hf.onsubmit = (e)=>{ e.preventDefault(); const fd = new FormData(hf); state.handwerker.push({ id: uid(), name: fd.get('name'), gewerk: fd.get('gewerk'), tel: fd.get('tel'), notiz: fd.get('notiz') }); saveState(); modalOpen=null; renderModal(); render(); };
+  if (hf) hf.onsubmit = (e)=>{
+    e.preventDefault(); const fd = new FormData(hf); const editId = fd.get('editId');
+    if (editId) {
+      const h = findHandwerker(editId);
+      h.name = fd.get('name'); h.gewerk = fd.get('gewerk'); h.tel = fd.get('tel'); h.notiz = fd.get('notiz');
+    } else {
+      state.handwerker.push({ id: uid(), name: fd.get('name'), gewerk: fd.get('gewerk'), tel: fd.get('tel'), notiz: fd.get('notiz') });
+    }
+    saveState(); modalOpen=null; renderModal(); render();
+  };
+  
   const wf = document.getElementById('wartung-form');
-  if (wf) wf.onsubmit = (e)=>{ e.preventDefault(); const fd = new FormData(wf); state.wartung.push({ id: uid(), titel: fd.get('titel'), objektId: fd.get('objektId')||null, intervall: fd.get('intervall'), naechster: fd.get('naechster'), notiz: fd.get('notiz') }); saveState(); modalOpen=null; renderModal(); render(); };
+  if (wf) wf.onsubmit = (e)=>{
+    e.preventDefault(); const fd = new FormData(wf); const editId = fd.get('editId');
+    if (editId) {
+      const w = state.wartung.find(x=>x.id===editId);
+      w.titel = fd.get('titel'); w.objektId = fd.get('objektId')||null; w.intervall = fd.get('intervall'); w.naechster = fd.get('naechster'); w.notiz = fd.get('notiz');
+    } else {
+      state.wartung.push({ id: uid(), titel: fd.get('titel'), objektId: fd.get('objektId')||null, intervall: fd.get('intervall'), naechster: fd.get('naechster'), notiz: fd.get('notiz') });
+    }
+    saveState(); modalOpen=null; renderModal(); render();
+  };
+  
+  const of = document.getElementById('objekt-form');
+  if (of) of.onsubmit = (e)=>{
+    e.preventDefault(); const fd = new FormData(of);
+    const editId = fd.get('objId'); const newId = fd.get('id_new');
+    if (editId) {
+      const o = findObjekt(editId);
+      o.name = fd.get('name'); o.adresse = fd.get('adresse'); o.emoji = fd.get('emoji')||'🏠';
+    } else {
+      // Eindeutigkeitsprüfung
+      if (state.objekte.some(x=>x.id===newId)) { alert('Ein Objekt mit dieser ID existiert bereits.'); return; }
+      state.objekte.push({ id: newId, name: fd.get('name'), adresse: fd.get('adresse'), emoji: fd.get('emoji')||'🏠', einheiten: [] });
+    }
+    saveState(); modalOpen=null; renderModal(); render();
+  };
   
   // Photo Handling
   document.querySelectorAll('[data-action="add-photo"]').forEach(el=>{
