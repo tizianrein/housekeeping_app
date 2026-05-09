@@ -283,7 +283,6 @@ textarea { resize: vertical; min-height: 80px; }
       <div class="brand-text">
         <div class="brand-title">Immobilien</div>
         <div class="brand-sub">Familie Rein GbR</div>
-        <div class="brand-sub" id="sync-badge" style="margin-top:2px;"></div>
       </div>
       <button class="drawer-close" data-drawer="toolbar">✕</button>
     </div>
@@ -294,9 +293,6 @@ textarea { resize: vertical; min-height: 80px; }
       <div class="nav-item" data-view="handwerker"><svg class="ti icon"><use href="#i-user"/></svg> Handwerker</div>
       <div class="nav-item" data-view="wartung"><svg class="ti icon"><use href="#i-cal"/></svg> Wartung</div>
     </nav>
-    <div style="padding: 12px 20px; border-top: 1px solid var(--line-soft);">
-      <button class="btn small" id="logout-btn" style="width: 100%;">Abmelden</button>
-    </div>
   </aside>
 
   <main class="viewer" id="view-container"></main>
@@ -370,17 +366,15 @@ const SEED_WARTUNG = [
   {id:'w2', titel:'Rauchmelder-Check', objektId:null, intervall:'Jährlich', naechster:'2025-10-01', notiz:''}
 ];
 
-// ============== BACKEND CONFIG ==============
-const API_BASE = 'https://backend.familie-rein.workers.dev';
-const TOKEN_KEY = 'immo_auth_token';
-
 // ============== STATE ==============
-let state = null; // wird vom Backend geladen
+const STORAGE_KEY = 'immo_repair_v5';
+let state;
+try { const s = localStorage.getItem(STORAGE_KEY); state = s ? JSON.parse(s) : { objekte: SEED_OBJEKTE, schaeden: SEED_SCHAEDEN, handwerker: SEED_HANDWERKER, wartung: SEED_WARTUNG }; }
+catch(e) { state = { objekte: SEED_OBJEKTE, schaeden: SEED_SCHAEDEN, handwerker: SEED_HANDWERKER, wartung: SEED_WARTUNG }; }
+
 let currentView = 'dashboard';
 let modalOpen = null;
 let expandedObjekt = null; let expandedEinheit = null;
-let syncTimer = null;
-let syncStatus = 'idle';
 
 // Filter/Search State for Damages
 let schadenSearch = '';
@@ -388,51 +382,7 @@ let schadenSort = 'neu';
 let schadenFilterKat = 'alle';
 let listFilter = 'alle';
 
-// ============== API LAYER ==============
-async function apiCall(path, options = {}) {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const headers = { ...(options.headers || {}) };
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  if (options.body && typeof options.body === 'string') headers['Content-Type'] = 'application/json';
-  const res = await fetch(API_BASE + path, { ...options, headers });
-  if (res.status === 401) { localStorage.removeItem(TOKEN_KEY); showLogin(); throw new Error('Nicht angemeldet'); }
-  if (!res.ok) { const err = await res.json().catch(()=>({ error: 'Server-Fehler' })); throw new Error(err.error || 'Fehler'); }
-  return res;
-}
-async function apiLogin(password) {
-  const res = await fetch(API_BASE + '/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
-  if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error || 'Falsches Passwort'); }
-  const data = await res.json();
-  localStorage.setItem(TOKEN_KEY, data.token);
-  return data;
-}
-async function apiGetState() { const res = await apiCall('/api/state'); return res.json(); }
-async function apiPutState(s) { await apiCall('/api/state', { method:'PUT', body: JSON.stringify(s) }); }
-async function apiUploadFoto(blob, contentType) {
-  const res = await apiCall('/api/foto', { method:'POST', body: blob, headers:{'Content-Type': contentType } });
-  return res.json();
-}
-function fotoUrl(id) { return API_BASE + '/api/foto/' + id; }
-
-// ============== SYNC ==============
-function setSyncStatusBadge(s) {
-  syncStatus = s;
-  const el = document.getElementById('sync-badge'); if (!el) return;
-  if (s==='syncing') { el.textContent = '⟳ Sync...'; el.style.color = 'var(--info)'; }
-  else if (s==='error') { el.textContent = '⚠ Fehler'; el.style.color = 'var(--accent)'; }
-  else if (s==='success') { el.textContent = '✓ Gespeichert'; el.style.color = 'var(--ok)'; }
-  else { el.textContent = ''; }
-}
-async function syncToServer() {
-  setSyncStatusBadge('syncing');
-  try { await apiPutState(state); setSyncStatusBadge('success'); setTimeout(()=>{ if(syncStatus==='success') setSyncStatusBadge('idle'); }, 1500); }
-  catch(e) { console.error('Sync:', e); setSyncStatusBadge('error'); }
-}
-function saveState() {
-  // statt localStorage: an Backend senden (debounced)
-  clearTimeout(syncTimer);
-  syncTimer = setTimeout(syncToServer, 800);
-}
+function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){} }
 function uid() { return 'id' + Date.now() + Math.floor(Math.random()*1000); }
 function heute() { return new Date().toISOString().slice(0,10); }
 function findObjekt(id) { return state.objekte.find(o=>o.id===id); }
@@ -489,7 +439,7 @@ function renderSchadenCard(s) {
   // Prüfen, ob Fotos existieren, um das erste als Vorschau zu zeigen
   let fotoHtml = '';
   if (s.fotos && s.fotos.length > 0) {
-    fotoHtml = `<img src="${fotoUrl(s.fotos[0])}" style="width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); flex-shrink: 0; margin-left: 12px;" alt="Foto">`;
+    fotoHtml = `<img src="${s.fotos[0]}" style="width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); flex-shrink: 0; margin-left: 12px;" alt="Foto">`;
   }
 
   return `<div class="card clickable" data-action="open-schaden" data-id="${s.id}">
@@ -680,7 +630,7 @@ function renderSchadenDetail(id) {
       <p class="modal-section-value">${bearbeiterTxt}</p>
       <p class="modal-section-label">Fotos (${s.fotos.length})</p>
       <div class="photo-grid">
-        ${s.fotos.map((f,i)=>`<img src="${fotoUrl(f)}" style="width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); cursor: pointer;" data-action="view-photo" data-id="${s.id}" data-idx="${i}" alt="Foto" />`).join('')}
+        ${s.fotos.map((f,i)=>`<img src="${f}" style="width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); cursor: pointer;" data-action="view-photo" data-id="${s.id}" data-idx="${i}" alt="Foto" />`).join('')}
         <label style="width: 72px; height: 72px; border: 1px dashed var(--line-soft); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink-mute); font-size: 22px; background: var(--bg-soft);" title="Foto hinzufügen"><svg class="ti"><use href="#i-cam"/></svg><input type="file" accept="image/*" capture="environment" data-action="add-photo" data-id="${s.id}" style="display:none;" /></label>
       </div>
       <p class="modal-section-label">Verlauf</p>
@@ -880,15 +830,8 @@ function bindModalHandlers() {
           if (w>max || h>max){ if (w>h){ h = h*max/w; w = max; } else { w = w*max/h; h = max; } }
           const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
           cv.getContext('2d').drawImage(img,0,0,w,h);
-          cv.toBlob(async (blob)=>{
-            try {
-              const result = await apiUploadFoto(blob, 'image/jpeg');
-              s.fotos.push(result.id); s.historie.push({datum:heute(), text:'Foto hinzugefügt'});
-              saveState(); renderModal();
-            } catch(err) {
-              alert('Foto-Upload fehlgeschlagen: ' + err.message);
-            }
-          }, 'image/jpeg', 0.8);
+          s.fotos.push(cv.toDataURL('image/jpeg', 0.75)); s.historie.push({datum:heute(), text:'Foto hinzugefügt'});
+          saveState(); renderModal();
         };
         img.src = ev.target.result;
       };
@@ -898,75 +841,13 @@ function bindModalHandlers() {
   document.querySelectorAll('[data-action="view-photo"]').forEach(el=>{
     el.onclick = ()=>{
       const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return;
-      const fotoId = s.fotos[parseInt(el.dataset.idx)];
-      window.open(fotoUrl(fotoId), '_blank');
+      const win = window.open();
+      win.document.write(`<body style="margin:0; background:#000; display:flex; align-items:center; justify-content:center; min-height:100vh;"><img src="${s.fotos[parseInt(el.dataset.idx)]}" style="max-width:100%; max-height:100vh;" /></body>`);
     };
   });
 }
 
-// ============== LOGIN / STARTUP ==============
-function showLogin() {
-  state = null;
-  document.querySelector('.app').style.display = 'none';
-  document.querySelectorAll('.fab, .drawer-backdrop').forEach(el => el.style.display = 'none');
-  let loginEl = document.getElementById('login-overlay');
-  if (!loginEl) {
-    loginEl = document.createElement('div');
-    loginEl.id = 'login-overlay';
-    loginEl.style.cssText = 'position:fixed; inset:0; background:var(--bg); display:grid; place-items:center; z-index:1000; padding:24px;';
-    loginEl.innerHTML = `
-      <div style="background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius-lg); padding:32px; max-width:380px; width:100%; box-shadow:var(--shadow-2);">
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-          <div style="font-size:24px; width:40px; height:40px; display:grid; place-items:center; border:1px solid var(--ink); border-radius:50%; background:var(--ink); color:var(--bg);">⌂</div>
-          <div>
-            <div style="font-family:var(--display); font-size:20px; font-weight:500;">Immobilien</div>
-            <div style="font-family:var(--mono); font-size:11px; color:var(--ink-mute);">Familie Rein GbR</div>
-          </div>
-        </div>
-        <form id="login-form" style="display:flex; flex-direction:column; gap:14px;">
-          <div class="field">
-            <label>Passwort</label>
-            <input type="password" id="pw" autocomplete="current-password" required autofocus />
-          </div>
-          <div id="login-error" style="display:none; background:var(--accent-soft); color:var(--accent-deep); padding:10px 14px; border-radius:var(--radius); font-size:13px;"></div>
-          <button type="submit" class="btn primary" style="justify-content:center; padding:12px;">Anmelden</button>
-        </form>
-      </div>
-    `;
-    document.body.appendChild(loginEl);
-  } else {
-    loginEl.style.display = 'grid';
-  }
-  document.getElementById('login-form').onsubmit = async (e)=>{
-    e.preventDefault();
-    const pw = document.getElementById('pw').value;
-    const errEl = document.getElementById('login-error');
-    const btn = e.target.querySelector('button');
-    errEl.style.display = 'none';
-    btn.disabled = true; btn.textContent = 'Prüfe...';
-    try { await apiLogin(pw); await loadAndStart(); }
-    catch(err) { errEl.textContent = err.message || 'Anmeldung fehlgeschlagen'; errEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Anmelden'; }
-  };
-}
-
-async function loadAndStart() {
-  const loginEl = document.getElementById('login-overlay');
-  if (loginEl) loginEl.style.display = 'none';
-  document.querySelector('.app').style.display = '';
-  document.getElementById('view-container').innerHTML = `<div style="display:flex; align-items:center; justify-content:center; min-height:60vh; color:var(--ink-mute); font-family:var(--mono);"><div style="width:24px; height:24px; border:2px solid var(--line-soft); border-top-color:var(--ink); border-radius:50%; animation:spin 0.8s linear infinite; margin-right:12px;"></div>Lade Daten...</div><style>@keyframes spin { to { transform: rotate(360deg); } }</style>`;
-  try {
-    state = await apiGetState();
-    render();
-    const lb = document.getElementById('logout-btn');
-    if (lb) lb.onclick = ()=>{ localStorage.removeItem(TOKEN_KEY); showLogin(); };
-  } catch(e) {
-    if (e.message === 'Nicht angemeldet') return;
-    document.getElementById('view-container').innerHTML = `<div style="padding:40px; text-align:center; color:var(--accent);">Fehler beim Laden: ${escapeHtml(e.message)}<br><br><button class="btn" onclick="loadAndStart()">Erneut versuchen</button></div>`;
-  }
-}
-window.loadAndStart = loadAndStart;
-
-if (localStorage.getItem(TOKEN_KEY)) { loadAndStart(); } else { showLogin(); }
+render();
 </script>
 </body>
 </html>
