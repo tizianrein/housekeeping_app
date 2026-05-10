@@ -353,6 +353,27 @@ async function apiUploadFoto(blob, contentType) {
 }
 function fotoUrl(id) { return API_BASE + '/api/foto/' + id; }
 
+// Cache für authentifizierte Foto-Blob-URLs
+const fotoBlobCache = {};
+async function loadFotoBlob(id) {
+  if (fotoBlobCache[id]) return fotoBlobCache[id];
+  try {
+    const res = await apiCall('/api/foto/' + id);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    fotoBlobCache[id] = url;
+    return url;
+  } catch(e) { return null; }
+}
+function loadAllFotos() {
+  document.querySelectorAll('img[data-foto-id]').forEach(async img => {
+    if (img.src && img.src.startsWith('blob:')) return;
+    const id = img.dataset.fotoId;
+    const url = await loadFotoBlob(id);
+    if (url) img.src = url;
+  });
+}
+
 // ============== SYNC ==============
 function setSyncStatusBadge(s) {
   syncStatus = s;
@@ -390,6 +411,7 @@ function render() {
   else if (currentView==='handwerker') c.innerHTML = renderHandwerker();
   else if (currentView==='wartung') c.innerHTML = renderWartung();
   renderQuickImmoList(); bindHandlers(); renderModal();
+  loadAllFotos();
 }
 
 function renderQuickImmoList() {
@@ -428,7 +450,7 @@ function renderSchadenCard(s) {
   // Prüfen, ob Fotos existieren, um das erste als Vorschau zu zeigen
   let fotoHtml = '';
   if (s.fotos && s.fotos.length > 0) {
-    fotoHtml = `<img src="${fotoUrl(s.fotos[0])}" style="width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); flex-shrink: 0; margin-left: 12px;" alt="Foto">`;
+    fotoHtml = `<img data-foto-id="${s.fotos[0]}" alt="Foto" style="width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); flex-shrink: 0; margin-left: 12px; background: var(--bg-soft);">`;
   }
 
   return `<div class="card clickable" data-action="open-schaden" data-id="${s.id}">
@@ -611,6 +633,7 @@ function renderModal() {
   const host = document.createElement('div'); host.id = 'modal-host';
   host.innerHTML = `<div class="modal-bg" id="modal-bg"><div class="modal">${html}</div></div>`;
   document.body.appendChild(host); bindModalHandlers();
+  loadAllFotos();
 }
 
 function renderSchadenDetail(id) {
@@ -641,7 +664,7 @@ function renderSchadenDetail(id) {
       <p class="modal-section-value">${bearbeiterTxt}</p>
       <p class="modal-section-label">Fotos (${s.fotos.length})</p>
       <div class="photo-grid">
-        ${s.fotos.map((f,i)=>`<img src="${fotoUrl(f)}" style="width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); cursor: pointer;" data-action="view-photo" data-id="${s.id}" data-idx="${i}" alt="Foto" />`).join('')}
+        ${s.fotos.map((f,i)=>`<img data-foto-id="${f}" style="width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line-soft); cursor: pointer; background: var(--bg-soft);" data-action="view-photo" data-id="${s.id}" data-idx="${i}" alt="Foto" />`).join('')}
         <label style="width: 72px; height: 72px; border: 1px dashed var(--line-soft); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink-mute); font-size: 22px; background: var(--bg-soft);" title="Foto hinzufügen"><svg class="ti"><use href="#i-cam"/></svg><input type="file" accept="image/*" capture="environment" data-action="add-photo" data-id="${s.id}" style="display:none;" /></label>
       </div>
       <p class="modal-section-label">Verlauf</p>
@@ -1004,10 +1027,11 @@ function bindModalHandlers() {
     };
   });
   document.querySelectorAll('[data-action="view-photo"]').forEach(el=>{
-    el.onclick = ()=>{
+    el.onclick = async ()=>{
       const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return;
       const fotoId = s.fotos[parseInt(el.dataset.idx)];
-      window.open(fotoUrl(fotoId), '_blank');
+      const url = await loadFotoBlob(fotoId);
+      if (url) window.open(url, '_blank');
     };
   });
 }
