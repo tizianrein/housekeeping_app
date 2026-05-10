@@ -513,18 +513,17 @@ function renderObjekte() {
 function renderObjektCard(o) {
   const offen = state.schaeden.filter(s=>s.objektId===o.id && s.status!=='erledigt').length;
   const totalM2 = o.einheiten.reduce((a,e)=>a+(parseFloat(e.m2)||0), 0);
-  const totalMiete = o.einheiten.reduce((a,e)=>a+(parseFloat(e.kmMonat)||0), 0);
   const expanded = expandedObjekt===o.id;
   return `<div class="obj-card ${expanded?'expanded':''}" data-obj-id="${o.id}">
     <div class="obj-head" data-action="toggle-objekt" data-id="${o.id}">
       <div style="flex:1; min-width:0;">
         <p class="obj-name"><span style="font-size: 20px;">${o.emoji}</span> ${escapeHtml(o.name)}</p>
-        <p class="obj-stats">${o.einheiten.length} Einheiten · ${totalM2.toFixed(0)} m² · ${fmtEuroInt(totalMiete)}/Mo · ${offen} offene Schäden</p>
+        <p class="obj-stats">${o.einheiten.length} Einheiten · ${totalM2.toFixed(0)} m² · ${offen} offene Schäden</p>
       </div>
       <svg class="ti obj-chev"><use href="#i-chev"/></svg>
     </div>
     <div class="obj-body">
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin: 16px 0 14px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin: 16px 0 14px;">
         <button class="btn small" data-action="edit-objekt" data-id="${o.id}"><svg class="ti"><use href="#i-edit"/></svg> Objekt bearbeiten</button>
         <button class="btn small primary" data-action="new-einheit" data-id="${o.id}"><svg class="ti"><use href="#i-plus"/></svg> Neue Einheit</button>
         <button class="btn small danger" data-action="delete-objekt" data-id="${o.id}"><svg class="ti"><use href="#i-trash"/></svg></button>
@@ -537,22 +536,12 @@ function renderObjektCard(o) {
 function renderEinheitRow(o, e) {
   const eOffen = state.schaeden.filter(s=>s.einheitId===e.id && s.status!=='erledigt').length;
   const expanded = expandedEinheit===e.id;
-  const naechste = e.naechste || [];
-  const naechsteErhoehung = naechste.filter(n => {
-    if (!n.datum) return false;
-    const parts = n.datum.split('.');
-    return parts.length===3 && new Date(parts[2]+'-'+parts[1]+'-'+parts[0]) > new Date();
-  })[0];
   return `<div class="einheit ${expanded?'expanded':''}" data-action="toggle-einheit" data-id="${e.id}">
     <div class="einheit-row">
       <div style="flex:1; min-width:0;">
         <div class="einheit-name">${escapeHtml(e.id)} · ${escapeHtml(e.bez)}</div>
         <div class="einheit-mieter">${escapeHtml(e.mieter)}</div>
-        <div class="einheit-stats">${e.m2} m² · ${(e.kmM2||0).toFixed(2).replace('.',',')} €/m²${eOffen>0?' · <span style="color:var(--accent);">'+eOffen+' offen</span>':''}</div>
-      </div>
-      <div style="text-align:right; font-family:var(--mono); font-size:13px; font-weight:600; white-space:nowrap;">
-        ${fmtEuroInt(e.kmMonat||0)}/Mo
-        ${naechsteErhoehung?`<div style="font-family:var(--mono); font-size:10px; color:var(--ink-mute); font-weight:400; margin-top:2px;">↑ ab ${naechsteErhoehung.datum.slice(3)}</div>`:''}
+        <div class="einheit-stats">${e.m2} m²${eOffen>0?' · <span style="color:var(--accent);">'+eOffen+' offen</span>':''}</div>
       </div>
     </div>
     <div class="einheit-detail">
@@ -561,22 +550,7 @@ function renderEinheitRow(o, e) {
         <div class="detail-grid-item"><p class="lbl">Typ</p><p class="val">${escapeHtml(e.typ)}</p></div>
         <div class="detail-grid-item"><p class="lbl">Bezeichnung</p><p class="val">${escapeHtml(e.bez)}</p></div>
         <div class="detail-grid-item"><p class="lbl">Mieter</p><p class="val">${escapeHtml(e.mieter)}</p></div>
-        <div class="detail-grid-item"><p class="lbl">Kaltmiete / Monat</p><p class="val">${fmtEuroInt(e.kmMonat||0)}</p></div>
-        <div class="detail-grid-item"><p class="lbl">Nebenkosten / Monat</p><p class="val">${fmtEuroInt(e.nkMonat||0)}</p></div>
-        <div class="detail-grid-item"><p class="lbl">€ pro m²</p><p class="val">${(e.kmM2||0).toFixed(2).replace('.',',')} €</p></div>
-        <div class="detail-grid-item"><p class="lbl">Letzte Erhöhung</p><p class="val">${escapeHtml(e.letzteErhoehung||'–')}</p></div>
       </div>
-      ${naechste.length>0 ? `
-        <div style="border-top: 1px solid var(--line-soft); padding-top: 12px; margin-top: 4px;">
-          <p class="lbl" style="margin-bottom:8px;">Geplante Mieterhöhungen</p>
-          ${naechste.map(n=>`
-            <div style="display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; border-bottom:1px solid var(--line-soft); font-family:var(--mono); font-size:12px;">
-              <span style="color:var(--ink-soft);">${escapeHtml(n.datum||'')}</span>
-              <span style="font-weight:600;">${(n.neuKmM2||0).toFixed(2).replace('.',',')} €/m² <span style="font-size:10px; color:var(--ok); margin-left:6px;">+${n.prozent||0}% von ${(n.alt||0).toFixed(2).replace('.',',')} €</span></span>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
       <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
         <button class="btn small" data-action="edit-einheit" data-obj="${o.id}" data-ein="${e.id}"><svg class="ti"><use href="#i-edit"/></svg> Bearbeiten</button>
         <button class="btn small primary" data-action="schaden-fuer" data-obj="${o.id}" data-ein="${e.id}"><svg class="ti"><use href="#i-plus"/></svg> Schaden erfassen</button>
@@ -736,9 +710,8 @@ function renderSchadenForm(prefill, editId) {
 
 function renderEinheitForm(objId, einId) {
   const isNew = !einId;
-  const e = isNew ? { id:'', bez:'', typ:'Wohnung', mieter:'', m2:0, kmM2:0, kmMonat:0, nkMonat:0, letzteErhoehung:'', naechste:[] } : findEinheit(objId, einId);
+  const e = isNew ? { id:'', bez:'', typ:'Wohnung', mieter:'', m2:0 } : findEinheit(objId, einId);
   if (!e) return '';
-  const naechste = e.naechste || [];
   return `
     <header class="modal-head">
       <h3 class="modal-title">${isNew?'Neue Einheit':'Einheit bearbeiten'}</h3>
@@ -764,22 +737,6 @@ function renderEinheitForm(objId, einId) {
           <div class="field"><label>Wohnfläche (m²)</label><input type="number" step="0.01" name="m2" value="${e.m2||0}" /></div>
         </div>
         <div class="field"><label>Mieter</label><input type="text" name="mieter" value="${escapeHtml(e.mieter||'')}" placeholder="Name oder 'Leerstand'" /></div>
-        
-        <p class="modal-section-label" style="border-top:1px solid var(--line-soft); padding-top:14px; margin-top:6px;">Mietpreise</p>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
-          <div class="field"><label>€ pro m²</label><input type="number" step="0.01" name="kmM2" value="${e.kmM2||0}" /></div>
-          <div class="field"><label>Kaltmiete / Monat</label><input type="number" step="0.01" name="kmMonat" value="${e.kmMonat||0}" /></div>
-          <div class="field"><label>Nebenkosten / Monat</label><input type="number" step="0.01" name="nkMonat" value="${e.nkMonat||0}" /></div>
-        </div>
-        <div class="field"><label>Letzte Erhöhung (Datum/Notiz)</label><input type="text" name="letzteErhoehung" value="${escapeHtml(e.letzteErhoehung||'')}" placeholder="z.B. 01.03.2022" /></div>
-        
-        <p class="modal-section-label" style="border-top:1px solid var(--line-soft); padding-top:14px; margin-top:6px;">
-          Geplante Mieterhöhungen
-          <button type="button" class="btn small" data-form-action="add-erhoehung"><svg class="ti"><use href="#i-plus"/></svg></button>
-        </p>
-        <div id="erhoehungen-list" style="display:flex; flex-direction:column; gap:8px;">
-          ${naechste.map((n,i)=>renderErhoehungZeile(n, i)).join('')}
-        </div>
       </form>
     </div>
     <footer class="modal-foot">
@@ -787,16 +744,6 @@ function renderEinheitForm(objId, einId) {
       <button type="submit" form="einheit-form" class="btn info">Speichern</button>
     </footer>
   `;
-}
-
-function renderErhoehungZeile(n, idx) {
-  return `<div class="erhoehung-zeile" data-idx="${idx}" style="display:grid; grid-template-columns: 110px 1fr 1fr 60px auto; gap:6px; align-items:end; padding:8px; background:var(--bg-soft); border-radius:var(--radius);">
-    <div class="field" style="margin:0;"><label style="font-size:9px;">Datum</label><input type="text" name="erh_datum_${idx}" value="${escapeHtml(n.datum||'')}" placeholder="01.03.2025" style="font-family:var(--mono); font-size:12px;" /></div>
-    <div class="field" style="margin:0;"><label style="font-size:9px;">Alt €/m²</label><input type="number" step="0.01" name="erh_alt_${idx}" value="${n.alt||0}" style="font-family:var(--mono); font-size:12px;" /></div>
-    <div class="field" style="margin:0;"><label style="font-size:9px;">Neu €/m²</label><input type="number" step="0.01" name="erh_neu_${idx}" value="${n.neuKmM2||0}" style="font-family:var(--mono); font-size:12px;" /></div>
-    <div class="field" style="margin:0;"><label style="font-size:9px;">%</label><input type="number" step="0.1" name="erh_prozent_${idx}" value="${n.prozent||0}" style="font-family:var(--mono); font-size:12px;" /></div>
-    <button type="button" class="icon-btn" data-form-action="remove-erhoehung" data-idx="${idx}" title="Löschen" style="color:var(--accent);"><svg class="ti"><use href="#i-trash"/></svg></button>
-  </div>`;
 }
 
 function renderObjektForm(objId) {
@@ -969,36 +916,16 @@ function bindModalHandlers() {
     const objId = fd.get('objId'); const oldEinId = fd.get('einId'); const newEinId = fd.get('id_new');
     const isNew = !oldEinId;
     
-    // Erhöhungen aus dem Formular einsammeln
-    const naechste = [];
-    document.querySelectorAll('#erhoehungen-list .erhoehung-zeile').forEach(zeile => {
-      const idx = zeile.dataset.idx;
-      const datum = fd.get(`erh_datum_${idx}`);
-      if (!datum) return;
-      naechste.push({
-        datum: datum,
-        alt: parseFloat(fd.get(`erh_alt_${idx}`))||0,
-        neuKmM2: parseFloat(fd.get(`erh_neu_${idx}`))||0,
-        prozent: parseFloat(fd.get(`erh_prozent_${idx}`))||0
-      });
-    });
-    
     const data = {
       id: newEinId,
       bez: fd.get('bez'),
       typ: fd.get('typ'),
       mieter: fd.get('mieter'),
-      m2: parseFloat(fd.get('m2'))||0,
-      kmM2: parseFloat(fd.get('kmM2'))||0,
-      kmMonat: parseFloat(fd.get('kmMonat'))||0,
-      nkMonat: parseFloat(fd.get('nkMonat'))||0,
-      letzteErhoehung: fd.get('letzteErhoehung')||'',
-      naechste: naechste
+      m2: parseFloat(fd.get('m2'))||0
     };
     
     const o = findObjekt(objId);
     if (isNew) {
-      // ID-Eindeutigkeit prüfen
       if (o.einheiten.some(x=>x.id===newEinId)) { alert('Eine Einheit mit dieser ID existiert bereits.'); return; }
       o.einheiten.push(data);
     } else {
@@ -1008,24 +935,6 @@ function bindModalHandlers() {
     }
     saveState(); modalOpen=null; renderModal(); render();
   };
-
-  // Erhöhungs-Zeile hinzufügen / entfernen
-  document.querySelectorAll('[data-form-action="add-erhoehung"]').forEach(b=> b.onclick = ()=>{
-    const list = document.getElementById('erhoehungen-list');
-    const idx = list.children.length;
-    const wrap = document.createElement('div');
-    wrap.innerHTML = renderErhoehungZeile({datum:'',alt:0,neuKmM2:0,prozent:0}, idx);
-    list.appendChild(wrap.firstElementChild);
-    // Re-bind Remove-Buttons
-    bindErhoehungRemoveButtons();
-  });
-  function bindErhoehungRemoveButtons() {
-    document.querySelectorAll('[data-form-action="remove-erhoehung"]').forEach(b=> b.onclick = (ev)=>{
-      ev.preventDefault();
-      b.closest('.erhoehung-zeile').remove();
-    });
-  }
-  bindErhoehungRemoveButtons();
 
   const hf = document.getElementById('handwerker-form');
   if (hf) hf.onsubmit = (e)=>{
