@@ -724,14 +724,16 @@ function renderSchadenDetail(id) {
       <p class="modal-section-value">${bearbeiterTxt}</p>
       <p class="modal-section-label">Fotos (${s.fotos.length})</p>
       <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start;">
-        <label style="width:72px; height:72px; border:1px dashed var(--line-soft); border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; color:var(--ink-mute); font-size:20px; background:var(--bg-soft); flex-shrink:0;" title="Foto hinzufügen"><svg class="ti"><use href="#i-cam"/></svg><span style="font-size:9px; font-family:var(--mono); text-transform:uppercase; letter-spacing:.04em;">Foto</span><input type="file" accept="image/*" data-action="add-photo" data-id="${s.id}" style="display:none;" /></label>
+        <label style="width:72px; height:72px; border:1px dashed var(--line-soft); border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; color:var(--ink-mute); font-size:20px; background:var(--bg-soft); flex-shrink:0;" title="Foto hinzufügen"><svg class="ti"><use href="#i-cam"/></svg><span style="font-size:9px; font-family:var(--mono); text-transform:uppercase; letter-spacing:.04em;">Foto</span><input type="file" accept="image/*" multiple data-action="add-photo" data-id="${s.id}" style="display:none;" /></label>
         ${s.fotos.map((f,i)=>`<img data-foto-id="${f}" style="width:72px; height:72px; object-fit:cover; border-radius:var(--radius); border:1px solid var(--line-soft); cursor:pointer; background:var(--bg-soft); flex-shrink:0;" data-action="view-photo" data-id="${s.id}" data-idx="${i}" alt="Foto" />`).join('')}
       </div>
       <p class="modal-section-label">Verlauf</p>
       <div class="timeline">${s.historie.slice().reverse().map(h=>`<div class="timeline-entry"><p class="timeline-date">${h.datum}</p>${escapeHtml(h.text)}</div>`).join('')}</div>
     </div>
     <footer class="modal-foot schaden-foot" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:12px 16px;">
-      ${s.status!=='erledigt'?`<button class="btn success" data-modal-action="set-status" data-id="${s.id}" data-status="erledigt" style="justify-content:center;">✔ Erledigt</button>`:`<button class="btn" data-modal-action="set-status" data-id="${s.id}" data-status="offen" style="justify-content:center;">↩ Öffnen</button>`}
+      ${s.status!=='erledigt'
+        ? `<button class="btn success" data-modal-action="set-status" data-id="${s.id}" data-status="erledigt" style="justify-content:center;">✔ Erledigt</button>`
+        : `<button class="btn" data-modal-action="set-status" data-id="${s.id}" data-status="offen" style="justify-content:center;">↩ Öffnen</button>`}
       <button class="btn" data-modal-action="delete-schaden" data-id="${s.id}" style="justify-content:center; color:var(--accent); border-color:var(--accent);"><svg class="ti"><use href="#i-trash"/></svg> Löschen</button>
       <button class="btn" data-modal-action="add-note" data-id="${s.id}" style="justify-content:center;"><svg class="ti"><use href="#i-note"/></svg> Kommentar</button>
       <button class="btn" data-modal-action="close" style="justify-content:center; background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:600;">Schließen</button>
@@ -777,7 +779,14 @@ function renderSchadenForm(prefill, editId) {
           </select>
         </div>
         <div class="field"><label>Beschreibung</label><textarea name="beschreibung" rows="3">${s?escapeHtml(s.beschreibung):''}</textarea></div>
-        <div class="field"><label>Kosten (€)</label><input type="number" name="kosten" step="0.01" min="0" value="${s&&s.kosten?s.kosten:''}" placeholder="0.00" /></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Status</label><select name="status">
+            <option value="offen" ${(!s||s.status==='offen')?'selected':''}>Offen</option>
+            <option value="in_bearbeitung" ${s&&s.status==='in_bearbeitung'?'selected':''}>In Bearbeitung</option>
+            <option value="erledigt" ${s&&s.status==='erledigt'?'selected':''}>Erledigt</option>
+          </select></div>
+          <div class="field"><label>Kosten (€)</label><input type="number" name="kosten" step="0.01" min="0" value="${s&&s.kosten?s.kosten:''}" placeholder="0.00" /></div>
+        </div>
       </form>
     </div>
     <footer class="modal-foot">
@@ -978,7 +987,9 @@ function bindModalHandlers() {
     const bearb = fd.get('bearbeiterTyp'); const hwId = bearb==='extern' ? (fd.get('handwerkerId')||null) : null;
     if (editId) {
       const s = state.schaeden.find(x=>x.id===editId);
-      s.titel = fd.get('titel'); s.objektId = objId; s.einheitId = einId; s.kategorie = fd.get('kategorie'); s.prioritaet = fd.get('prioritaet'); s.bearbeiterTyp = bearb; s.handwerkerId = hwId; s.beschreibung = fd.get('beschreibung');
+      const neuerStatus = fd.get('status');
+      if (neuerStatus && neuerStatus !== s.status) s.historie.push({datum:heute(), text:`Status: ${neuerStatus==='in_bearbeitung'?'In Bearbeitung':neuerStatus==='erledigt'?'Erledigt':'Offen'}`});
+      s.titel = fd.get('titel'); s.objektId = objId; s.einheitId = einId; s.kategorie = fd.get('kategorie'); s.prioritaet = fd.get('prioritaet'); s.bearbeiterTyp = bearb; s.handwerkerId = hwId; s.beschreibung = fd.get('beschreibung'); s.status = neuerStatus || s.status;
       const kostenVal = parseFloat(fd.get('kosten')); if (!isNaN(kostenVal)) s.kosten = kostenVal;
       s.historie.push({datum:heute(), text:'Details bearbeitet'});
       saveState(); modalOpen={type:'detail', id:s.id};
@@ -1056,30 +1067,33 @@ function bindModalHandlers() {
   
   // Photo Handling
   document.querySelectorAll('[data-action="add-photo"]').forEach(el=>{
-    el.onchange = (e)=>{
-      const file = e.target.files[0]; if (!file) return;
+    el.onchange = async (e)=>{
+      const files = Array.from(e.target.files); if (!files.length) return;
       const s = state.schaeden.find(x=>x.id===el.dataset.id); if (!s) return;
-      const reader = new FileReader();
-      reader.onload = (ev)=>{
-        const img = new Image();
-        img.onload = ()=>{
-          const max = 1280; let w = img.width, h = img.height;
-          if (w>max || h>max){ if (w>h){ h = h*max/w; w = max; } else { w = w*max/h; h = max; } }
-          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-          cv.getContext('2d').drawImage(img,0,0,w,h);
-          cv.toBlob(async (blob)=>{
-            try {
-              const result = await apiUploadFoto(blob, 'image/jpeg');
-              s.fotos.push(result.id); s.historie.push({datum:heute(), text:'Foto hinzugefügt'});
-              saveState(); renderModal();
-            } catch(err) {
-              alert('Foto-Upload fehlgeschlagen: ' + err.message);
-            }
-          }, 'image/jpeg', 0.8);
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
+      for (const file of files) {
+        await new Promise(resolve=>{
+          const reader = new FileReader();
+          reader.onload = (ev)=>{
+            const img = new Image();
+            img.onload = ()=>{
+              const max = 1280; let w = img.width, h = img.height;
+              if (w>max||h>max){ if(w>h){h=h*max/w;w=max;}else{w=w*max/h;h=max;} }
+              const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+              cv.getContext('2d').drawImage(img,0,0,w,h);
+              cv.toBlob(async (blob)=>{
+                try {
+                  const result = await apiUploadFoto(blob,'image/jpeg');
+                  s.fotos.push(result.id); s.historie.push({datum:heute(), text:'Foto hinzugefügt'});
+                  saveState(); renderModal();
+                } catch(err) { alert('Foto-Upload fehlgeschlagen: '+err.message); }
+                resolve();
+              },'image/jpeg',0.8);
+            };
+            img.src = ev.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
     };
   });
   document.querySelectorAll('[data-action="view-photo"]').forEach(el=>{
