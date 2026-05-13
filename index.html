@@ -260,6 +260,8 @@ textarea { resize: vertical; min-height: 80px; }
   .modal { max-width: 100%; max-height: 100dvh; height: 100dvh; border-radius: 0; border: none; }
   .modal-head, .modal-body { padding: 14px 16px; }
   .modal-foot { padding: 12px 16px; }
+  .schaden-foot .btn { padding: 8px 4px; font-size: 12px; gap: 4px; }
+  .schaden-foot .btn .ti { width: 14px; height: 14px; }
 }
 @media (min-width: 901px) { .fab, .drawer-backdrop { display: none !important; } }
 
@@ -728,7 +730,7 @@ function renderSchadenDetail(id) {
       <p class="modal-section-label">Verlauf</p>
       <div class="timeline">${s.historie.slice().reverse().map(h=>`<div class="timeline-entry"><p class="timeline-date">${h.datum}</p>${escapeHtml(h.text)}</div>`).join('')}</div>
     </div>
-    <footer class="modal-foot" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:12px 16px;">
+    <footer class="modal-foot schaden-foot" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:12px 16px;">
       ${s.status!=='erledigt'?`<button class="btn success" data-modal-action="set-status" data-id="${s.id}" data-status="erledigt" style="justify-content:center;">✔ Erledigt</button>`:`<button class="btn" data-modal-action="set-status" data-id="${s.id}" data-status="offen" style="justify-content:center;">↩ Öffnen</button>`}
       <button class="btn" data-modal-action="delete-schaden" data-id="${s.id}" style="justify-content:center; color:var(--accent); border-color:var(--accent);"><svg class="ti"><use href="#i-trash"/></svg> Löschen</button>
       <button class="btn" data-modal-action="add-note" data-id="${s.id}" style="justify-content:center;"><svg class="ti"><use href="#i-note"/></svg> Kommentar</button>
