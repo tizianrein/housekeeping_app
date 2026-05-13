@@ -297,8 +297,8 @@ textarea { resize: vertical; min-height: 80px; }
       <button class="drawer-close" data-drawer="toolbar">✕</button>
     </div>
     <nav class="nav-menu">
-      <div class="nav-item active" data-view="dashboard"><svg class="ti icon"><use href="#i-dash"/></svg> Übersicht</div>
-      <div class="nav-item" data-view="schaeden"><svg class="ti icon"><use href="#i-tools"/></svg> Schäden</div>
+      <div class="nav-item" data-view="dashboard"><svg class="ti icon"><use href="#i-dash"/></svg> Übersicht</div>
+      <div class="nav-item active" data-view="schaeden"><svg class="ti icon"><use href="#i-tools"/></svg> Schäden</div>
       <div class="nav-item" data-view="objekte"><svg class="ti icon"><use href="#i-building"/></svg> Objekte</div>
       <div class="nav-item" data-view="handwerker"><svg class="ti icon"><use href="#i-user"/></svg> Handwerker</div>
       <div class="nav-item" data-view="wartung"><svg class="ti icon"><use href="#i-cal"/></svg> Wartung</div>
@@ -327,7 +327,7 @@ const TOKEN_KEY = 'immo_auth_token';
 
 // ============== STATE ==============
 let state = null; // wird vom Backend geladen
-let currentView = 'dashboard';
+let currentView = 'schaeden';
 let modalOpen = null;
 let expandedObjekt = null; let expandedEinheit = null;
 let syncTimer = null;
@@ -548,7 +548,7 @@ function renderSchaeden() {
   
   // Sorting
   liste.sort((a,b) => {
-    if(schadenSort==='neu') return b.erstellt.localeCompare(a.erstellt);
+    if(schadenSort==='neu') { const ad=a.historie[a.historie.length-1]?.datum||a.erstellt, bd=b.historie[b.historie.length-1]?.datum||b.erstellt; return bd.localeCompare(ad); }
     if(schadenSort==='alt') return a.erstellt.localeCompare(b.erstellt);
     if(schadenSort==='prio') { const p={dringend:0, mittel:1, niedrig:2}; return p[a.prioritaet]-p[b.prioritaet]; }
     return 0;
@@ -726,7 +726,7 @@ function renderSchadenDetail(id) {
         ${s.fotos.map((f,i)=>`<img data-foto-id="${f}" style="width:72px; height:72px; object-fit:cover; border-radius:var(--radius); border:1px solid var(--line-soft); cursor:pointer; background:var(--bg-soft); flex-shrink:0;" data-action="view-photo" data-id="${s.id}" data-idx="${i}" alt="Foto" />`).join('')}
       </div>
       <p class="modal-section-label">Verlauf</p>
-      <div class="timeline">${s.historie.map(h=>`<div class="timeline-entry"><p class="timeline-date">${h.datum}</p>${escapeHtml(h.text)}</div>`).join('')}</div>
+      <div class="timeline">${s.historie.slice().reverse().map(h=>`<div class="timeline-entry"><p class="timeline-date">${h.datum}</p>${escapeHtml(h.text)}</div>`).join('')}</div>
     </div>
     <footer class="modal-foot" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:12px 16px;">
       ${s.status!=='erledigt'?`<button class="btn success" data-modal-action="set-status" data-id="${s.id}" data-status="erledigt" style="justify-content:center;">✔ Erledigt</button>`:`<button class="btn" data-modal-action="set-status" data-id="${s.id}" data-status="offen" style="justify-content:center;">↩ Öffnen</button>`}
